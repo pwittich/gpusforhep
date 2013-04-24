@@ -1,0 +1,37 @@
+package rcc_error
+
+author  markus.joos@cern.ch
+manager markus.joos@cern.ch
+
+#==========================================================
+private
+#==========================================================
+
+#--- "use ROSPolicy" should always be in the private section of the requirements file
+use ROSPolicy
+
+#----------------------------------------------------------
+library rcc_error lib/rcc_error.cpp -no_share
+#----------------------------------------------------------
+application rcc_error_test test/rcc_error_test.cpp test/packA.cpp test/packB.cpp test/packC.cpp
+#----------------------------------------------------------
+#----- check target stuff -----
+###document script_launcher BufferManagementcheck \
+###  -group=check ../${BufferManagement_tag}/test_buffer
+#----------------------------------------------------------
+
+
+
+#==========================================================
+public
+#==========================================================
+
+#----------------------------------------------------------
+apply_pattern install_libs files="librcc_error.a"
+#----------------------------------------------------------
+apply_pattern install_apps files="rcc_error_test"
+#----------------------------------------------------------
+macro rcc_error_linkopts "-lrcc_error"
+#----------------------------------------------------------
+apply_pattern ld_library_path
+#----------------------------------------------------------

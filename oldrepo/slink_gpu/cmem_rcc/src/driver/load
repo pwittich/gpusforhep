@@ -1,0 +1,29 @@
+#!/bin/sh
+#/***********************************************************************/
+#/*									*/
+#/* File: load								*/
+#/*									*/
+#/* This script loads the CMEM_RCC driver				*/
+#/*									*/
+#/* 11. Dec. 01  MAJO  created						*/
+#/*									*/
+#/*********** C 2001 - The software with that certain something *********/
+
+module="cmem_rcc-"`uname -r`
+device="cmem_rcc"
+
+# load the module
+/sbin/insmod -f ./$module.o || exit 1
+
+# remove old device node
+rm -f /dev/$device
+
+# get major number
+major=`awk "\\$2==\"$device\" {print \\$1}" /proc/devices`
+echo major number is $major
+
+# make device node
+mknod /dev/$device c $major 0
+
+#give permissions
+chmod 666 /dev/$device

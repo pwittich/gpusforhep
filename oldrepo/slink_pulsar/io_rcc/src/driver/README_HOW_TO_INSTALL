@@ -1,0 +1,6 @@
+# Compile instructions
+# obsolete
+# make -C /usr/src/linux-2.6.14-gentoo-r2/ CFLAGS="-mcmodel=kernel -I. -I /usr/src/linux-2.6.14-gentoo-r2/include/asm-i386/mach-default  -I /root/run/official/l2pulsar_slink/io_rcc -I/usr/include " SUBDIRS=$PWD modules
+
+# 07/01/2008 pmf
+make -C /usr/src/linux KCFLAGS="-mcmodel=kernel -I. -I/usr/src/linux/include/asm-x86/mach-default -I/root/run/official/l2pulsar_slink/io_rcc -I/usr/include" SUBDIRS=$PWD

@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# cmem_rcc:       Starts the CMEM_RCC driver
+#
+# Version:      @(#) /etc/rc.d/init.d/cmem_rcc 1.0
+#
+# chkconfig: 5 80 20
+# description: Starts and stops the cmem_rcc driver at boot time and shutdown.
+#
+# processname: cmem_rcc
+# hide: true
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# See how we were called.
+case "$1" in
+  start)
+        echo    "Starting CMEM_RCC driver "
+        # load the module
+        /sbin/insmod -f /lib/modules/daq/cmem_rcc-`uname -r`.o
+        # remove old device node
+        rm -f /dev/cmem_rcc
+        # get major number
+        major=`awk "\\$2==\"cmem_rcc\" {print \\$1}" /proc/devices`
+        echo major number is $major
+        # make device node
+        mknod /dev/cmem_rcc c $major 0
+        #give permissions
+        chmod 666 /dev/cmem_rcc
+        echo
+        ;;
+  stop)
+        echo    "Shutting down CMEM_RCC driver "
+        /sbin/rmmod cmem_rcc-`uname -r`
+        echo
+        ;;
+  status)
+        cat /proc/cmem_rcc
+        ;;
+  restart)
+        echo    "Shutting down cmem_rcc driver "
+        /sbin/rmmod cmem_rcc-`uname -r`
+        echo    "Starting cmem_rcc driver "
+        /sbin/insmod -f /lib/modules/daq/cmem_rcc-`uname -r`.o
+        echo
+        ;;
+  *)
+        echo "*** Usage: cmem_rcc {start|stop|status|restart}"
+        exit 1
+esac
+
+exit 0
+

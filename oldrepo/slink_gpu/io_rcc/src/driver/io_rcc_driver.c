@@ -1,0 +1,688 @@
+/************************************************************************/
+/*									*/
+/* File: io_rcc.c							*/
+/*									*/
+/* IO RCC driver							*/
+/*									*/
+/*  7. Jun. 02  MAJO  created						*/
+/*									*/
+/************ C 2002 - The software with that certain something *********/
+
+
+/************************************************************************/
+/*NOTES:								*/
+/*- This driver should work on kernels from 2.2.12 onwards		*/
+/************************************************************************/
+
+// 07/01/08 pmf
+// #include <linux/config.h>
+//#include <linux/autoconf.h>
+
+// 03/03/11 Wes
+#include <generated/autoconf.h>
+
+#if defined(CONFIG_MODVERSIONS) && !defined(MODVERSIONS)
+  #define MODVERSIONS
+#endif
+//MJ-SMP:#ifdef CONFIG_SMP
+//MJ-SMP:  #define __SMP__
+//MJ-SMP:#endif
+
+#if defined(MODVERSIONS)
+/*   #include <linux/modversions.h> */
+  #include <config/modversions.h>
+#endif
+/* KH 2.6 */
+#include <linux/types.h>
+#include <linux/init.h>
+
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/pci.h>
+#include <linux/errno.h>
+#include <linux/fs.h>
+#include <linux/proc_fs.h>
+#include <linux/mm.h>
+#include <linux/string.h>
+#include <linux/vmalloc.h>
+#include <linux/mman.h>
+/* KH commented for amd64 */
+/* #include <linux/wrapper.h> */
+#include <linux/slab.h>
+#include <linux/sched.h>
+#include <asm/uaccess.h>
+#include <asm/io.h>
+#include <current.h>
+#include <asm/system.h>
+#include "io_rcc/io_rcc_driver.h"
+
+#define DRV_NAME        "iorcc"
+#define DRV_VERSION     "2.6"
+#define DRV_RELDATE     "08Nov2002"
+
+static char versionA[] __initdata = DRV_NAME ".c:" DRV_VERSION " " DRV_RELDATE " becker@scyld.com\n";
+static char versionB[] __initdata = "http://www.scyld.com/network/3c509.html\n";
+
+MODULE_AUTHOR("Markus Joos, CERN/EP");
+MODULE_DESCRIPTION("PCI IO driver");
+MODULE_LICENSE("GPL");
+#ifdef MODULE_LICENSE
+
+//MODULE_LICENSE("Private: Contact markus.joos@cern.ch");
+#endif
+
+
+/************/
+/*Prototypes*/
+/************/
+static void io_rcc_vmaClose(struct vm_area_struct *vma);
+//static int io_rcc_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
+static int io_rcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+static int io_rcc_open(struct inode *ino, struct file *filep);
+static int io_rcc_mmap(struct file *file, struct vm_area_struct *vma);
+static int io_rcc_release(struct inode *ino, struct file *filep);
+
+/*********/
+/*Globals*/
+/*********/
+static int iorcc_major = 0; // use dynamic allocation
+static u_int board_type;
+static pci_devices_t pcidev[IO_MAX_PCI];
+  
+struct vm_operations_struct io_vm_ops =
+{       
+  close: io_rcc_vmaClose
+};
+
+
+static struct file_operations fops = 
+{
+  // Wes, 03.03.11
+  //compat_ioctl:   io_rcc_ioctl,
+  unlocked_ioctl:   io_rcc_ioctl,
+  open:    io_rcc_open,    
+  mmap:    io_rcc_mmap,
+  release: io_rcc_release
+};
+
+/****************************/
+/* Standard driver function */
+/****************************/
+
+
+/***********************************************************/
+static int io_rcc_open(struct inode *ino, struct file *filep)
+/***********************************************************/
+{
+  /* MOD_INC_USE_COUNT; */
+  return(0);
+}
+
+
+/**************************************************************/
+static int io_rcc_release(struct inode *ino, struct file *filep)
+/**************************************************************/
+{
+  int loop;
+  
+  kdebug(("io_rcc(release): pid = %d\n", current->pid));
+
+  // Release orphaned links to PCI devices
+  for(loop = 0; loop < IO_MAX_PCI; loop++)
+  {
+    if (current->pid == pcidev[loop].pid)
+    {
+      pcidev[loop].pid = 0;
+      kdebug(("io_rcc(release): Orphaned PCI device unlinked (vid=0x%08x did=0x%08x\n", pcidev[loop].vid, pcidev[loop].did));
+    } 
+  }
+
+  /* MOD_DEC_USE_COUNT; */
+  return(0);
+}
+
+/**************************************************************************************************/
+//static int io_rcc_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
+static int io_rcc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+/**************************************************************************************************/
+{
+  switch (cmd)
+  {        
+    case IOPEEK:
+    {
+      IO_RCC_IO_t params;
+      int ret;
+      
+      ret = copy_from_user(&params, (void *)arg, sizeof(IO_RCC_IO_t));
+      if (ret)
+      {
+	kdebug(("io_rcc(ioctl,IOPEEK): error %d from copy_from_user\n",ret));
+	return(-EFAULT);
+      }
+      
+      if (params.size == 4)
+      {
+        params.data = inl(params.offset);
+        kdebug(("io_rcc(ioctl,IOPEEK): 0x%08x (int) read from 0x%08x\n", params.data, params.offset));
+      }
+      if (params.size == 2)
+      {
+        params.data = inw(params.offset);      
+        kdebug(("io_rcc(ioctl,IOPEEK): 0x%08x (word) read from 0x%08x\n", params.data, params.offset));
+      }
+      if (params.size == 1)
+      {
+        params.data = inb(params.offset);
+        kdebug(("io_rcc(ioctl,IOPEEK): 0x%08x (byte) read from 0x%08x\n", params.data, params.offset));
+      }
+        
+      if (copy_to_user((void *)arg, &params, sizeof(IO_RCC_IO_t)) != 0)
+      {
+	kdebug(("io_rcc(ioctl,IOPEEK): error from copy_to_user\n"));
+	return(-EFAULT);
+      }
+      break;
+    }   
+        
+    case IOPOKE:
+    {
+      IO_RCC_IO_t params;
+      int ret;
+      
+      ret = copy_from_user(&params, (void *)arg, sizeof(IO_RCC_IO_t));
+      if (ret)
+      {
+	kdebug(("io_rcc(ioctl,IOPOKE): error %d from copy_from_user\n",ret));
+	return(-EFAULT);
+      }
+      
+      if (params.size == 4) 
+      {
+        kdebug(("io_rcc(ioctl,IOPOKE): writing 0x%08x (int) to 0x%08x\n", params.data, params.offset));
+        outl(params.data, params.offset);
+        wmb();    // Recommended by Rubini on p. 238
+      }
+      if (params.size == 2) 
+      {
+        kdebug(("io_rcc(ioctl,IOPOKE): writing 0x%08x (word) to 0x%08x\n", params.data, params.offset));
+        outw(params.data&0xffff, params.offset);
+        wmb();
+      }
+      if (params.size == 1) 
+      {
+        kdebug(("io_rcc(ioctl,IOPOKE): writing 0x%08x (byte) to 0x%08x\n", params.data, params.offset));
+        outb(params.data&0xff, params.offset);
+        wmb();
+      }
+              
+      if (copy_to_user((void *)arg, &params, sizeof(IO_RCC_IO_t)) != 0)
+      {
+	kdebug(("io_rcc(ioctl,IOPOKE): error from copy_to_user\n"));
+	return(-EFAULT);
+      }
+      break;
+    } 
+     
+    case IOGETID:
+    {
+      if (copy_to_user((void *)arg, &board_type, sizeof(int)) != 0)
+      {
+    	kdebug(("io_rcc(ioctl,IOGETID): error from copy_to_user\n"));
+      return(-EFAULT);
+      }
+      break;
+    }
+    
+    case IOPCILINK:
+    {
+      int ret, dnum;
+      u_int loop;
+      IO_PCI_FIND_t find;
+      struct pci_dev *dev = NULL;
+      
+      ret = copy_from_user(&find, (void *)arg, sizeof(IO_PCI_FIND_t));
+      if (ret)
+      {
+	kdebug(("io_rcc(ioctl,IOPCILINK): error %d from copy_from_user\n",ret));
+	return(-EFAULT);
+      }     
+      
+      //Find a free slot in the pcidev array
+      //MJ: for now I am not checking if the same device has already been opened by an other call
+      dnum = -1;
+//MJ-SMP: to be protected (spinlock)
+      for(loop = 0; loop < IO_MAX_PCI; loop++)
+      {
+        if (pcidev[loop].pid == 0)
+        {
+          dnum = loop;
+          pcidev[dnum].pid = current->pid;  //Reserve this array element
+          break;
+        }
+      }
+//MJ-SMP: end of protected zone      
+      
+      if (dnum == -1)
+      {
+        kdebug(("io_rcc(ioctl,IOPCILINK): Device table is full\n"));
+        return(-IO_PCI_TABLEFULL);
+      }
+          
+      for(loop = 0; loop < find.occ; loop++)
+      {
+        //dev = pci_find_device(find.vid, find.did, dev);  //Find N-th device      
+        
+	// Wes, 04.14.11. Changed to pci_get_device, and must use pci_dev_put to
+	// dereference if we pass through
+	int valid_dev=0;
+	dev = pci_get_device(find.vid,find.did,dev); // Wes, 03.03.11
+	if(dev) {
+	  pci_dev_put(dev);
+	  valid_dev=1;
+        }	
+
+	//if (dev == NULL)
+	if(!valid_dev)
+	{
+          kdebug(("io_rcc(ioctl,IOPCILINK): No device found\n"));
+          pcidev[dnum].pid = 0;  //array element no longer required
+          return(-IO_PCI_NOT_FOUND);
+        }
+      }
+  
+      kdebug(("io_rcc(ioctl,IOPCILINK):Device found\n"));
+      kdebug(("io_rcc(ioctl,IOPCILINK):devfn =0x%08x\n", dev->devfn));
+      kdebug(("io_rcc(ioctl,IOPCILINK):irq   =0x%08x\n", dev->irq));
+      kdebug(("io_rcc(ioctl,IOPCILINK):dev_ptr   =0x%08x\n", dev));
+
+      pcidev[dnum].vid     = find.vid;
+      pcidev[dnum].did     = find.did;
+      pcidev[dnum].occ     = find.occ;
+      pcidev[dnum].dev_ptr = dev;
+
+      //pci_dev_put(dev);
+
+      find.handle = dnum;
+    
+      ret = copy_to_user((void *)arg, &find, sizeof(IO_PCI_FIND_t));
+      if (ret)
+      {
+    	kdebug(("io_rcc(ioctl,IOPCILINK): error from copy_to_user\n"));
+        return(-EFAULT);
+      }
+      break;
+    }
+    
+    case IOPCIUNLINK:
+    { 
+      u_int dnum;
+      int ret;
+ 
+      ret = copy_from_user(&dnum, (void *)arg, sizeof(int));
+      if (ret)
+      {
+	kdebug(("io_rcc(ioctl,IOPCIUNLINK): error %d from copy_from_user\n",ret));
+	return(-EFAULT);
+      }
+      
+      if (pcidev[dnum].pid == 0)
+      {
+        kdebug(("io_rcc(ioctl,IOPCICONFR): Illegal handle\n"));
+	return(-IO_PCI_ILL_HANDLE);
+      }
+      
+      pcidev[dnum].pid = 0;
+
+      break;
+    }
+    
+    case IOPCICONFR:
+    {
+      int ret;
+      IO_PCI_CONF_t params;
+      u_int idata;
+      u_short sdata;
+      u_char cdata;
+    
+      ret = copy_from_user(&params, (void *)arg, sizeof(IO_PCI_CONF_t));
+      if (ret)
+      {
+	kdebug(("io_rcc(ioctl,IOPCICONFR): error %d from copy_from_user\n",ret));
+	return(-EFAULT);
+      }
+      
+      kdebug(("io_rcc: Handle=%d\tpcidev[params.handle].pid=%d\n",params.handle,pcidev[params.handle].pid));
+
+      if (pcidev[params.handle].pid == 0)
+      {
+        kdebug(("io_rcc(ioctl,IOPCICONFR): Illegal handle\n"));
+	return(-IO_PCI_ILL_HANDLE);
+      }
+      
+      if (params.size == 4)
+      {
+      kdebug(("io_rcc: pcidev[params.handle].dev_ptr=%d\n",pcidev[params.handle].dev_ptr));
+        ret = pci_read_config_dword(pcidev[params.handle].dev_ptr, params.offs, &idata);
+        params.data = idata;
+      }
+      if (params.size == 2)
+      {
+        ret = pci_read_config_word(pcidev[params.handle].dev_ptr, params.offs, &sdata);
+        params.data = sdata;
+      }
+      if (params.size == 1)
+      {
+        ret = pci_read_config_byte(pcidev[params.handle].dev_ptr, params.offs, &cdata);
+        params.data = cdata;
+      }
+        
+      if (ret)
+      {
+        kdebug(("io_rcc(ioctl,IOPCICONFR): ERROR from pci_read_config_xxx\n"));
+	return(-IO_PCI_CONFIGRW);
+      }
+      
+      ret = copy_to_user((void *)arg, &params, sizeof(IO_PCI_CONF_t));
+      if (ret)
+      {
+    	kdebug(("io_rcc(ioctl,IOPCICONFR): error from copy_to_user\n"));
+        return(-EFAULT);
+      }
+      
+      break;
+    }
+
+    case IOPCICONFW:   
+    {
+      int ret;
+      IO_PCI_CONF_t params;
+    
+      ret = copy_from_user(&params, (void *)arg, sizeof(IO_PCI_CONF_t));
+      if (ret)
+      {
+	kdebug(("io_rcc(ioctl,IOPCICONFW): error %d from copy_from_user\n",ret));
+	return(-EFAULT);
+      }
+      
+      if (pcidev[params.handle].pid == 0)
+      {
+        kdebug(("io_rcc(ioctl,IOPCICONFW): Illegal handle\n"));
+	return(-IO_PCI_ILL_HANDLE);
+      }
+      
+      
+      if (params.size == 4)
+        ret = pci_write_config_dword(pcidev[params.handle].dev_ptr, params.offs, params.data);
+      if (params.size == 2)
+        ret = pci_write_config_dword(pcidev[params.handle].dev_ptr, params.offs, params.data&0xffff);
+      if (params.size == 1)
+        ret = pci_write_config_dword(pcidev[params.handle].dev_ptr, params.offs, params.data&0xff);
+      
+      if (ret)
+      {
+        kdebug(("io_rcc(ioctl,IOPCICONFW): ERROR from pci_write_config_xxxx\n"));
+	return(-IO_PCI_CONFIGRW);
+      }
+      
+      break;
+    }
+
+  }
+  return(0);
+}
+
+
+/*****************************************************/
+static void io_rcc_vmaClose(struct vm_area_struct *vma)
+/*****************************************************/
+{ 
+  kdebug(("io_rcc_vmaClose: mmap released\n"));
+  //MOD_DEC_USE_COUNT;
+}  
+
+
+/*******************************************************************/
+static int io_rcc_mmap(struct file *file, struct vm_area_struct *vma)
+/*******************************************************************/
+{
+  kdebug(("io_rcc_mmap: made it here\n"));
+
+  int result;
+  u_int size, offset;  
+
+  //#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+    vma->vm_flags |= VM_RESERVED;
+  //#endif
+
+  // we do not want to have this area swapped out, lock it
+  vma->vm_flags |= VM_LOCKED;  
+
+  kdebug(("io_rcc_mmap: vma->vm_end    = 0x%08x\n", (u_int)vma->vm_end));
+  kdebug(("io_rcc_mmap: vma->vm_start  = 0x%08x\n", (u_int)vma->vm_start));
+  //#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
+  //kdebug(("io_rcc_mmap: vma->vm_offset = 0x%08x\n", (u_int)vma->vm_offset));
+  //#else
+  kdebug(("io_rcc_mmap: vma->vm_offset = 0x%08x\n", (u_int)vma->vm_pgoff << PAGE_SHIFT));
+  //#endif
+  kdebug(("io_rcc_mmap: vma->vm_flags  = 0x%08x\n", (u_int)vma->vm_flags));
+
+  size = vma->vm_end - vma->vm_start;
+
+  //#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,0)
+  //  offset = vma->vm_offset;
+  //#else
+    offset = vma->vm_pgoff << PAGE_SHIFT;
+    //#endif
+
+    result = remap_pfn_range(vma, vma->vm_start, offset >> PAGE_SHIFT, size, vma->vm_page_prot);
+
+    /* KH 2.6.13 */
+    /*   result = remap_page_range(vma, vma->vm_start, offset, size, vma->vm_page_prot); */
+
+
+  /* KH 2.6 */
+  /*   result = remap_page_range(vma->vm_start, offset, size, vma->vm_page_prot); */
+  if (result)
+  {
+    kdebug(("io_rcc_mmap: function remap_page_range failed \n"));
+    return(-IO_PCI_REMAP);
+  }
+  kdebug(("io_rcc_mmap: vma->vm_start(2) = 0x%08x\n", (u_int)vma->vm_start));
+
+  vma->vm_ops = &io_vm_ops;
+  //MOD_INC_USE_COUNT;      
+  return(0);
+}
+
+
+/******************************************************************************************************/
+static int io_rcc_read_procmem(char *buf, char **start, off_t offset, int count, int *eof, void *data)
+/******************************************************************************************************/
+{
+  int loop, len = 0;
+
+  len += sprintf(buf + len, "IO_RCC driver\n");
+
+  len += sprintf(buf + len, "Dumping table of linked devices\n");
+  len += sprintf(buf + len, "Handle | Vendor ID | Device ID | Occurrence | Process ID\n");
+  for(loop = 0; loop < IO_MAX_PCI; loop++)
+  {
+    if (pcidev[loop].pid != 0)
+    {
+    len += sprintf(buf + len, "    %2d |", loop);
+    len += sprintf(buf + len, "0x%08x |", pcidev[loop].vid);
+    len += sprintf(buf + len, "0x%08x |", pcidev[loop].did);
+    len += sprintf(buf + len, " 0x%08x |", pcidev[loop].occ);
+    len += sprintf(buf + len, " 0x%08x\n", pcidev[loop].pid);
+    if (len + 100 > count) goto return_toolong;	// as recommended by Rubini
+    }
+  }
+
+  *eof = 1;
+  return len;
+
+return_toolong:
+  len += sprintf(buf + len, "Cannot display additional entries due to lack of memory\n");
+  len += sprintf(buf + len, " max. length (count) = %d, actual length (len) = %d\n",count,len);
+  *eof = 1;
+  return len;
+}
+
+
+//#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+  static struct proc_dir_entry *io_rcc_file;
+//#else
+
+/******************************************************************************************/
+//static int io_rcc_table_read(char *buf, char **start, off_t offset, int buf_len, int unused)
+/******************************************************************************************/
+/* { */
+/*   int eof = 0; */
+/*   return io_rcc_read_procmem(buf, start, offset, buf_len, &eof, NULL); */
+/* } */
+
+/* struct proc_dir_entry io_rcc_proc_file =  */
+/* { */
+/*   0, */
+/*   12, */
+/*   "io_rcc_table", */
+/*   S_IFREG|S_IRUGO, */
+/*   1, */
+/*   0, */
+/*   0, */
+/*   0, */
+/*   NULL, */
+/*   &io_rcc_table_read */
+/* } */;
+
+//#endif
+
+
+
+
+/*******************/
+/* int init_module(void) */
+__init int  iorcc_init_module(void)
+/*******************/
+{
+  int result, loop;
+  u_char reg;
+
+  //#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+  // KH 2.6
+  //SET_MODULE_OWNER(&fops);
+  //#endif
+
+  // Read the board identification
+  outb(BID1, CMOSA);
+  reg = inb(CMOSD);
+  kdebug(("io_rcc(init_module): BID1 = 0x%02x\n", reg));
+  
+  if (!(reg&0x80))
+  {
+    kdebug(("io_rcc(init_module): Unable to determine board type\n"));
+    board_type = VP_UNKNOWN;
+  }
+  else
+  {
+    outb(BID2, CMOSA);
+    reg = inb(CMOSD);
+    kdebug(("io_rcc(init_module): BID2 = 0x%02x\n", reg));
+
+    reg &= 0x1f;  // Mask board ID bits
+    board_type = VP_UNKNOWN;
+         if (reg == 2) board_type = VP_PSE;  // VP-PSE
+    else if (reg == 3) board_type = VP_PSE;  // VP-PSE
+    else if (reg == 4) board_type = VP_PSE;  // VP-PSE
+    else if (reg == 5) board_type = VP_PMC;  // VP-PMC
+    else if (reg == 6) board_type = VP_100;  // VP-100
+    else if (reg == 7) board_type = VP_CP1;  // VP-CP1
+    else  board_type = 0;
+    if (board_type == VP_PSE)
+      {kdebug(("io_rcc(init_module): Board type = VP-PSE\n"));}
+    if (board_type == VP_PMC)
+      {kdebug(("io_rcc(init_module): Board type = VP-PMC\n"));}
+    if (board_type == VP_100)
+      {kdebug(("io_rcc(init_module): Board type = VP-100\n"));}
+    if (board_type == VP_CP1)
+      {kdebug(("io_rcc(init_module): Board type = VP-CP1\n"));}
+   
+    if (!board_type)
+      {kdebug(("io_rcc(init_module): Unable to determine board type(2)\n"));}
+  }
+  
+
+  result = register_chrdev(iorcc_major, "io_rcc", &fops); 
+  if (result < 1)
+  {
+    kdebug(("io_rcc(init_module): register IO RCC driver failed.\n"));
+    return(-EIO);
+  }
+  iorcc_major = result;
+
+  //#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+    io_rcc_file = create_proc_read_entry("io_rcc",
+					  0,		// default: world read
+					  NULL,
+					  io_rcc_read_procmem,
+					  NULL);
+    if (io_rcc_file == NULL)
+    {
+      kdebug(("io_rcc(init_module): error from call to create_proc_read_entry\n"));
+      return (-ENOMEM);
+    }
+    //owner removed from latest kernels, Wes, 03.03.11
+    //io_rcc_file->owner = THIS_MODULE;
+    //#else
+    //proc_register(&proc_root, &io_rcc_proc_file);
+    //#endif
+
+  for(loop = 0; loop < IO_MAX_PCI; loop++) 
+    pcidev[loop].pid = 0;
+  
+  kdebug(("io_rcc(init_module): driver loaded; major device number = %d\n", iorcc_major));
+  return(0);
+}
+
+
+/***********************/
+/* void cleanup_module(void) */
+__exit void iorcc_cleanup_module(void)
+/***********************/
+{
+  // 07/01/2008 pmf: this signature of "unregister_chrdev" is void but was of type int
+  //     in previous kernel version, always returning "0", i.e. "if" block is always ignored.
+  //     Needed to comment it to suppress compile error.                
+  //if (unregister_chrdev(iorcc_major, "io_rcc") != 0) 
+  //{kdebug(("io_rcc(cleanup_module): cleanup_module failed\n"));}
+  unregister_chrdev(iorcc_major, "io_rcc");
+
+
+  //#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
+  remove_proc_entry("io_rcc", NULL);
+  //#else
+  //proc_unregister(&proc_root, io_rcc_proc_file.low_ino);
+  //#endif
+
+  kdebug(("io_rcc(cleanup_module): driver removed\n"));
+}
+
+
+static int __init init_hermes(void)
+{
+  return 0;
+}
+
+static void __exit exit_hermes(void)
+{
+}
+
+
+module_init(iorcc_init_module);
+module_exit(iorcc_cleanup_module);
+
+
+/* module_init (iorcc_init_module);	 */
+/* module_exit (iorcc_cleanup_module); */
+
+

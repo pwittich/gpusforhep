@@ -1,0 +1,1 @@
+cmd_/root/build/retired/072508/l2pulsar_slink/cmem_rcc/src/driver/cmem_rcc_drv.ko := ld -r -m elf_x86_64  --build-id -o /root/build/retired/072508/l2pulsar_slink/cmem_rcc/src/driver/cmem_rcc_drv.ko /root/build/retired/072508/l2pulsar_slink/cmem_rcc/src/driver/cmem_rcc_drv.o /root/build/retired/072508/l2pulsar_slink/cmem_rcc/src/driver/cmem_rcc_drv.mod.o

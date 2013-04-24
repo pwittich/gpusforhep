@@ -1,0 +1,60 @@
+package rcc_time_stamp
+
+author  markus.joos@cern.ch
+manager markus.joos@cern.ch
+
+private
+
+#--- "use ROSPolicy" should always be in the private section of the requirements file
+use ROSPolicy
+
+public
+
+#----------------------------------------------------------
+use rcc_error
+use ROSGetInput
+#----------------------------------------------------------
+
+
+#==========================================================
+private
+#==========================================================
+#----------------------------------------------------------
+library rcc_time_stamp rcc_time_stamp.cpp
+#----------------------------------------------------------
+macro_append cpp_opt_flags " -DnoTS_DEBUG "
+#----------------------------------------------------------
+application analyse test/analyse.cpp 
+application ts_analyse test/ts_analyse.cpp
+application ts_analyse_fb test/ts_analyse_fb.cpp
+application ts_simpletest test/ts_simpletest.cpp
+application tsonline test/tsonline.cpp
+application randtest test/randtest.cpp
+application tstamptest test/tstamptest.cpp
+application roitest test/roitest.cpp
+application ts_ring test/ts_ring.cpp
+#application binomtest test/binomtest.cpp
+#----------------------------------------------------------
+macro lib_rcc_time_stamp_cppflags        "-DTSTAMP"
+macro app_ts_simpletest_cppflags         "-DTSTAMP"
+macro app_tsonline_cppflags              "-DTSTAMP"
+macro app_randtest_cppflags              "-DTSTAMP"
+macro app_roitest_cppflags               "-DTSTAMP"
+#macro app_binomtest_cppflags             "-DTSTAMP"
+macro app_tstamptest_cppflags            "-DTSTAMP"
+#----------------------------------------------------------
+
+
+#==========================================================
+public
+#==========================================================
+
+#----------------------------------------------------------
+apply_pattern install_libs files="librcc_time_stamp.so"
+#----------------------------------------------------------
+apply_pattern install_apps files="ts_ring roitest randtest analyse ts_analyse ts_analyse_fb ts_simpletest tsonline tstamptest"
+#----------------------------------------------------------
+macro rcc_time_stamp_linkopts "-lrcc_time_stamp"
+#----------------------------------------------------------
+apply_pattern ld_library_path
+#----------------------------------------------------------

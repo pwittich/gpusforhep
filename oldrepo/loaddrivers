@@ -1,0 +1,29 @@
+#!/bin/bash
+
+
+echo o Loading slink drivers
+
+# kill and reload the drivers
+rmmod -f io_rcc_driver
+modprobe io_rcc_driver
+
+# now get the minor number and make the node
+MAJORNUM=`grep io_rcc /proc/devices | awk '{print $1}'`
+rm -f /dev/io_rcc
+mknod /dev/io_rcc c $MAJORNUM 0
+chgrp video /dev/io_rcc
+chmod 664 /dev/io_rcc
+
+# kill and reload the drivers
+rmmod -f cmem_rcc_drv
+modprobe cmem_rcc_drv
+echo o Setting device minor numbers
+
+# now get the minor number and make the node
+MAJORNUM=`grep cmem_rcc /proc/devices | awk '{print $1}'`
+rm -f /dev/cmem_rcc
+mknod /dev/cmem_rcc c $MAJORNUM 0
+chgrp video /dev/cmem_rcc
+chmod 664 /dev/cmem_rcc
+
+exit

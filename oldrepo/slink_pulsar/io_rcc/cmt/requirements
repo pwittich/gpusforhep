@@ -1,0 +1,51 @@
+package io_rcc
+
+author  markus.joos@cern.ch
+manager markus.joos@cern.ch
+
+private
+
+#--- "use ROSPolicy" should always be in the private section of the requirements file
+use ROSPolicy
+
+public
+
+#----------------------------------------------------------
+use rcc_error
+use ROSGetInput
+#----------------------------------------------------------
+
+
+#==========================================================
+private
+#==========================================================
+
+library io_rcc "lib/io_rcc_lib.cpp" -no_share
+library driver "../${CMTCONFIG}/io_rcc-$(kernel_version).c" -no_share ranlib=echo ar=echo
+#----------------------------------------------------------
+application io_rcc_test  test/io_rcc_test.cpp
+#----------------------------------------------------------
+macro_remove cflags            "-ansi"
+macro_remove cflags            "-pedantic"
+macro_remove cflags            "-fPIC"
+macro lib_driver_cflags        "-DnoIO_RCC_DEBUG -D__KERNEL__ -DMODULE \
+                                -I/lib/modules/${kernel_version}/build/include \
+                                -I../src/include -O2 "
+#----------------------------------------------------------
+apply_pattern install_scripts src_dir=../src/driver files="io_rcc"
+
+
+
+#==========================================================
+public
+#==========================================================
+
+#----------------------------------------------------------
+apply_pattern install_libs files="libio_rcc.a io_rcc-$(kernel_version).o"
+#----------------------------------------------------------
+apply_pattern install_apps files="io_rcc_test"
+#----------------------------------------------------------
+macro io_rcc_linkopts "-lio_rcc "
+#----------------------------------------------------------
+apply_pattern ld_library_path
+#----------------------------------------------------------

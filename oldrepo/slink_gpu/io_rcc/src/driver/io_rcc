@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# io_rcc:       Starts the IO_RCC driver
+#
+# Version:      @(#) /etc/rc.d/init.d/io_rcc 1.0
+#
+# chkconfig: 5 81 19
+# description: Starts and stops the io_rcc driver at boot time and shutdown.
+#
+# processname: io_rcc
+# hide: true
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# See how we were called.
+case "$1" in
+  start)
+        echo    "Starting IO_RCC driver "
+        # load the module
+        /sbin/insmod -f /lib/modules/daq/io_rcc-`uname -r`.o
+        # remove old device node
+        rm -f /dev/io_rcc
+        # get major number
+        major=`awk "\\$2==\"io_rcc\" {print \\$1}" /proc/devices`
+        echo major number is $major
+        # make device node
+        mknod /dev/io_rcc c $major 0
+        # give permissions
+        chmod 666 /dev/io_rcc
+        echo
+        ;;
+  stop)
+        echo    "Shutting down IO_RCC driver "
+        /sbin/rmmod io_rcc-`uname -r`
+        echo
+        ;;
+  status)
+        cat /proc/io_rcc_table
+        ;;
+  restart)
+        echo    "Shutting down io_rcc driver "
+        /sbin/rmmod io_rcc-`uname -r`
+        echo    "Starting io_rcc driver "
+        /sbin/insmod -f /lib/modules/daq/io_rcc-`uname -r`.o
+        echo
+        ;;
+  *)
+        echo "*** Usage: io_rcc {start|stop|status|restart}"
+        exit 1
+esac
+
+exit 0
+
