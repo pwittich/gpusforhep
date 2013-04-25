@@ -12,6 +12,7 @@
 #include "device_functions.h"
 
 
+
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 #include <thrust/generate.h>
@@ -1653,7 +1654,12 @@ int main(int argc, char* argv[]) {
   }
 
   unsigned int hexaval;
-  unsigned int data_send[2500000];
+  unsigned int *data_send = (unsigned int*)malloc(2500000*sizeof(unsigned));
+  if ( data_send == (unsigned int*) NULL ) {
+    perror("malloc");
+    return 2;
+  }
+   //unsigned int data_send[2500000];
   char word[16];
   int k=0;
   while (fscanf(hbout, "%s", word) != EOF) {
