@@ -25,7 +25,7 @@ LIBS=-L/home/wittich/src/cudpp_install_2.0/lib -lcudpp
 
 all: svt_gpu s2
 
-svt_gpu: svt_gpu.o svtsim_functions.o
+svt_gpu: svt_gpu.o gf_unpack.o gf_fep.o gf_fit.o svtsim_functions.o
 	$(NVCC) $^ -o $@ 
 
 s2: s2.o
