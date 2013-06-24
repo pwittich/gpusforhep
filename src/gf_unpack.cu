@@ -37,8 +37,11 @@ struct unpacker : public thrust::unary_function<DataTuple, UnpackTuple> {
     ee = (word >> SVT_EE_BIT)  & gf_mask_GPU(1);
     ep = (word >> SVT_EP_BIT)  & gf_mask_GPU(1);
 
+    int p_ee = (prev_word >> SVT_EE_BIT) & gf_mask_GPU(1);
+    int p_ep = (prev_word >> SVT_EP_BIT) & gf_mask_GPU(1);
+
     // check if this is the second XFT word
-    bool xft = ((prev_word >> SVT_LYR_LSB) & gf_mask_GPU(SVT_LYR_WIDTH)) == XFT_LYR ? 1 : 0;
+    bool xft = !p_ee && !p_ep && ((prev_word >> SVT_LYR_LSB) & gf_mask_GPU(SVT_LYR_WIDTH)) == XFT_LYR ? 1 : 0;
 
     if (ee && ep) { /* End of Event word */
       val1 = word; // ee_word
@@ -187,8 +190,9 @@ struct fill_tf_gpu {
 
 void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_dev, int *d_tEvts ) {
 
-  thrust::device_vector<unsigned int> d_vec(n_words);
-  thrust::copy(data_in, data_in + n_words, d_vec.begin());
+  thrust::device_vector<unsigned int> d_vec(n_words+1);
+  d_vec[0] = 0;
+  thrust::copy(data_in, data_in + n_words, d_vec.begin()+1);
   stop_time("input copy and initialize");
 
   start_time();
@@ -198,12 +202,12 @@ void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_de
   thrust::device_vector<unsigned int> d_out3t(n_words);
 
   thrust::transform(
-  thrust::make_zip_iterator(thrust::make_tuple(d_vec.begin(), d_vec.begin()-1)),
+  thrust::make_zip_iterator(thrust::make_tuple(d_vec.begin()+1, d_vec.begin())),
   thrust::make_zip_iterator(thrust::make_tuple(d_vec.end(), d_vec.end()-1)),
   thrust::make_zip_iterator(thrust::make_tuple(d_idt.begin(), d_out1t.begin(),
                  d_out2t.begin(), d_out3t.begin())),
                  unpacker());
-
+  
   thrust::device_vector<unsigned int> d_evt(n_words);
   thrust::device_vector<unsigned int> d_road(n_words);
   thrust::device_vector<unsigned int> d_rhit(n_words);
@@ -228,6 +232,20 @@ void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_de
     isEqualLayer()); // binary predicate
 
 
+  /*
+  // copy to CPU for verification
+  thrust::host_vector<unsigned int> h_test0 = d_idt;
+  thrust::host_vector<unsigned int> h_test1 = d_out1t;
+  thrust::host_vector<unsigned int> h_test2 = d_out2t;
+  thrust::host_vector<unsigned int> h_test3 = d_out3t;
+
+  for (int i=0; i<n_words; i++) {
+      unsigned int evt = d_evt[i];
+      unsigned int road = d_road[i];
+      printf("%.6x\tevt = %d\troad = %d\tlayer = %d\tout=(%.6x,%.6x,%.6x)\n", data_in[i], evt, road, h_test0[i], h_test1[i], h_test2[i], h_test3[i]);
+  }
+  */
+  
   // calculate number of combinations per road. currently being done later the old way
   /*
   thrust::device_vector<unsigned int> d_roadKey(n_words);
