@@ -13,11 +13,11 @@
 typedef thrust::tuple<unsigned int, unsigned int>     DataTuple;
 
 typedef thrust::tuple<unsigned int, unsigned int,
-          unsigned int, unsigned int>     UnpackTuple;
+		      unsigned int, unsigned int>     UnpackTuple;
 
 typedef thrust::device_vector<unsigned int>::iterator IntIterator;
 typedef thrust::tuple<IntIterator, IntIterator,
-          IntIterator, IntIterator>       IteratorTuple;
+		      IntIterator, IntIterator>       IteratorTuple;
 typedef thrust::zip_iterator<IteratorTuple>           ZipIterator;
 
 
@@ -226,9 +226,14 @@ void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_de
     thrust::make_transform_iterator(d_idt.begin(), isNewHit()), //vals
     d_lhit.begin(),
     isEqualLayer()); // binary predicate
+
+
+  // calculate number of combinations per road. currently being done later the old way
+  /*
   thrust::device_vector<unsigned int> d_roadKey(n_words);
   thrust::device_vector<unsigned int> d_ncomb(n_words);
   thrust::pair<IntIterator, IntIterator> new_end;
+
   new_end = thrust::reduce_by_key(
               d_road.begin(), d_road.end(), // keys
               d_lhit.begin(), // vals
@@ -236,7 +241,9 @@ void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_de
               d_ncomb.begin(), // vals output
               thrust::equal_to<int>(), // binary predicate
               layerHitMultiply()); // binary operator
+  */
 
+  // fill tf structures array
   thrust::for_each(
       thrust::make_zip_iterator(thrust::make_tuple(
         d_idt.begin(), d_idt.begin()+1, d_out1t.begin(), d_out2t.begin(), d_out3t.begin(),
