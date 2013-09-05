@@ -13,8 +13,11 @@ GENCODE_FLAGS   := $(GENCODE_SM10) $(GENCODE_SM13) $(GENCODE_SM20) #$(GENCODE_SM
 
 NVCC = nvcc
 #NVCCFLAGS = -O3 $(INCFLAG) --ptxas-options=-v -use_fast_math $(GENCODE_FLAGS)
-NVCCFLAGS = -g $(INCFLAG) --verbose $(GENCODE_SM20) #-DTHRUST_DEBUG
-#NVCCFLAGS = -O3 $(INCFLAG)  --use_fast_math $(GENCODE_SM20) 
+#NVCCFLAGS = -g $(INCFLAG) --verbose $(GENCODE_SM20) #-DTHRUST_DEBUG
+
+NVCCFLAGS = -O3 $(INCFLAG)  --use_fast_math $(GENCODE_SM13) #use to compile on l2gpu with GTX285
+#NVCCFLAGS = -O3 $(INCFLAG)  --use_fast_math $(GENCODE_SM20)
+
 
 LIBS=-L/home/wittich/src/cudpp_install_2.0/lib -lcudpp
 
@@ -23,7 +26,7 @@ LIBS=-L/home/wittich/src/cudpp_install_2.0/lib -lcudpp
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
-all: svt_gpu s2
+all: svt_gpu 
 
 svt_gpu: svt_gpu.o gf_unpack.o gf_fep.o gf_fit.o svtsim_functions.o
 	$(NVCC) $^ -o $@ 
