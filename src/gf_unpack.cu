@@ -10,6 +10,7 @@
 
 #include "svt_utils.h"
 
+
 typedef thrust::tuple<unsigned int, unsigned int>     DataTuple;
 
 typedef thrust::tuple<unsigned int, unsigned int,
@@ -185,18 +186,16 @@ struct fill_tf_gpu {
 };
 
 
-
-
-
-void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_dev, int *d_tEvts ) {
-
+//void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_dev, int *d_tEvts ) {
+void gf_unpack_GPU(thrust::device_vector<unsigned int> d_vec, int n_words, struct evt_arrays *evt_dev, int *d_tEvts ) {
+/*
   thrust::device_vector<unsigned int> d_vec(n_words+1);
   d_vec[0] = 0;
   thrust::copy(data_in, data_in + n_words, d_vec.begin()+1);
   stop_time("input copy and initialize");
 
   start_time();
-  thrust::device_vector<unsigned int> d_idt(n_words);
+*/  thrust::device_vector<unsigned int> d_idt(n_words);
   thrust::device_vector<unsigned int> d_out1t(n_words);
   thrust::device_vector<unsigned int> d_out2t(n_words);
   thrust::device_vector<unsigned int> d_out3t(n_words);
@@ -230,36 +229,6 @@ void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_de
     thrust::make_transform_iterator(d_idt.begin(), isNewHit()), //vals
     d_lhit.begin(),
     isEqualLayer()); // binary predicate
-
-
-  /*
-  // copy to CPU for verification
-  thrust::host_vector<unsigned int> h_test0 = d_idt;
-  thrust::host_vector<unsigned int> h_test1 = d_out1t;
-  thrust::host_vector<unsigned int> h_test2 = d_out2t;
-  thrust::host_vector<unsigned int> h_test3 = d_out3t;
-
-  for (int i=0; i<n_words; i++) {
-      unsigned int evt = d_evt[i];
-      unsigned int road = d_road[i];
-      printf("%.6x\tevt = %d\troad = %d\tlayer = %d\tout=(%.6x,%.6x,%.6x)\n", data_in[i], evt, road, h_test0[i], h_test1[i], h_test2[i], h_test3[i]);
-  }
-  */
-  
-  // calculate number of combinations per road. currently being done later the old way
-  /*
-  thrust::device_vector<unsigned int> d_roadKey(n_words);
-  thrust::device_vector<unsigned int> d_ncomb(n_words);
-  thrust::pair<IntIterator, IntIterator> new_end;
-
-  new_end = thrust::reduce_by_key(
-              d_road.begin(), d_road.end(), // keys
-              d_lhit.begin(), // vals
-              d_roadKey.begin(), // keys output
-              d_ncomb.begin(), // vals output
-              thrust::equal_to<int>(), // binary predicate
-              layerHitMultiply()); // binary operator
-  */
 
   // fill tf structures array
   thrust::for_each(

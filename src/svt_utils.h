@@ -1,9 +1,9 @@
 #include <cuda.h>
 #include "svtsim_functions.h"
+#include <thrust/device_vector.h>
+
 
 #define MAX(x,y) ((x)>(y) ? (x):(y))
-
-#define TIMING
 
 #define MY_CUDA_CHECK( call) {                                    \
     cudaError err = call;                                                    \
@@ -52,28 +52,33 @@ __device__ static long long int gf_maskdata3_GPU[] = {
   0x1fffffffffffULL, 0x3fffffffffffULL, 0x7fffffffffffULL, 0xffffffffffffULL
 };
 
-
+/*
 // CUDA timer macros
-static cudaEvent_t c_start, c_stop;
+
+// global variable for verbose output
+extern int TIMER;
+
+extern cudaEvent_t c_start, c_stop;
+
 inline void start_time() {
-#ifdef TIMING
-  cudaEventCreate(&c_start);
-  cudaEventCreate(&c_stop);
-  cudaEventRecord(c_start, 0);
-#endif
+  if ( TIMER ) {
+    cudaEventCreate(&c_start);
+    cudaEventCreate(&c_stop);
+    cudaEventRecord(c_start, 0);
+  }
 }
 
 inline void stop_time(const char *msg) {
-#ifdef TIMING  
-  cudaEventRecord(c_stop, 0);
-  cudaEventSynchronize(c_stop);
-  float elapsedTime;
-  cudaEventElapsedTime(&elapsedTime, c_start, c_stop);
-  printf("Time to %s: %.3f ms\n", msg, elapsedTime);
-#endif
+  if ( TIMER ) { 
+    cudaEventRecord(c_stop, 0);
+    cudaEventSynchronize(c_stop);
+    float elapsedTime;
+    cudaEventElapsedTime(&elapsedTime, c_start, c_stop);
+    printf("Time to %s: %.3f ms\n", msg, elapsedTime);
+  }
 }
 
-
+*/
 struct evt_arrays {
 
   int evt_hit[NEVTS][MAXROAD][NSVX_PLANE][MAX_HIT];
@@ -165,11 +170,11 @@ extern "C" {
   void svtsim_cable_copywords(svtsim_cable_t *cable, unsigned int *word, int nword);
   svtsim_cable_t * svtsim_cable_new(void);
 
-  void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_dev, int *d_tEvts );
+//  void gf_unpack_GPU(unsigned int *data_in, int n_words, struct evt_arrays *evt_dev, int *d_tEvts );
+  void gf_unpack_GPU(thrust::device_vector<unsigned int> d_vec, int n_words, struct evt_arrays *evt_dev, int *d_tEvts );
   void gf_fep_GPU( evt_arrays* evt_dev, fep_arrays* fep_dev, int maxEvt );
   void gf_fit_GPU(struct fep_arrays* fep_dev, struct evt_arrays* evt_dev, struct extra_data* edata_dev,
                 struct fit_arrays* fit_dev, struct fout_arrays* fout_dev, int maxEvt);
-
 }
 
 
