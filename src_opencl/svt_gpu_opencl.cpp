@@ -146,11 +146,23 @@ int main(int argc, char* argv[]) {
     printf("Time to CPU unpack: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
+    for(int ie=0; ie<NEVTS; ie++){
+      printf("\nEvent %d, nroads = %d",ie,tf->evt_nroads[ie]);
+    }
+
     gettimeofday(&ptBegin, NULL);
     gf_fep_comb(tf);
     gettimeofday(&ptEnd, NULL);
     printf("Time to CPU comb: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    for(int ie=0; ie<NEVTS; ie++){
+      printf("\nEvent %d\n",ie);
+      for(int ir=0; ir<MAXROAD; ir++){
+	if(tf->fep_ncmb[ie][ir]!=0)
+	  printf("\n\tRoad %d, ncomb = %d",ir,tf->fep_ncmb[ie][ir]);
+      }
+    }
 
     gettimeofday(&ptBegin, NULL);
     gf_fit(tf);
@@ -227,9 +239,9 @@ int main(int argc, char* argv[]) {
 
     //====================================
     //build program source
-    std::string kernel_comb = "gf_fep.cl";
-    std::ifstream file((kernel_comb).c_str());
-    CL_HELPERFUNCS::checkErr(file.is_open() ? CL_SUCCESS:-1, (kernel_comb).c_str());
+    std::string kernel_file = "gf_fep.cl";
+    std::ifstream file((kernel_file).c_str());
+    CL_HELPERFUNCS::checkErr(file.is_open() ? CL_SUCCESS:-1, (kernel_file).c_str());
     
     
     //TODO-RAR add build options
@@ -256,15 +268,22 @@ int main(int argc, char* argv[]) {
     
     //====================================
     //set kernel entry point
-    std::string kernelFunc = "gf_fep_comb_GPU";
-    cl::Kernel kernel(program, kernelFunc.c_str(), &err);
+    std::string kernelFunc_fep_comb = "gf_fep_comb_GPU";
+    cl::Kernel kernel_fep_comb(program, kernelFunc_fep_comb.c_str(), &err);
     CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
-    std::cout << __FANCY__ << "Entry point set to " << kernelFunc << std::endl;
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_comb << std::endl;
     
+    //====================================
+    //set kernel entry point
+    std::string kernelFunc_fep_set = "gf_fep_set_GPU";
+    cl::Kernel kernel_fep_set(program, kernelFunc_fep_set.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_set << std::endl;
+
     // Get the maximum work group size for executing the kernel on the device
     
     cl::NDRange maxWorkGroupSize;
-    err = kernel.getWorkGroupInfo(device(),
+    err = kernel_fep_comb.getWorkGroupInfo(device(),
 				  CL_KERNEL_WORK_GROUP_SIZE,
 				  &maxWorkGroupSize); //returns 3 dimensional size
     
@@ -299,26 +318,32 @@ int main(int argc, char* argv[]) {
 
 
     gettimeofday(&ptBegin, NULL);
-    gf_fep_unpack_evt(evt, k, data_send, &totEvts);
+    gf_fep_unpack_evt(evt, k, data_send);
+    printf("Total events %d\n\n",evt->totEvts);
     gettimeofday(&ptEnd, NULL);
     printf("Time to CPU unpack: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
-    err = kernel.setArg(0, inCL);
-    err = kernel.setArg(1, outCL);
-    err = kernel.setArg(2, totEvts);
+    err = kernel_fep_comb.setArg(0, inCL);
+    err = kernel_fep_comb.setArg(1, outCL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    printf("We have prepared the buffers and are ready to go!\n");
+    err = kernel_fep_set.setArg(0, inCL);
+    err = kernel_fep_set.setArg(1, outCL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
     printf("We have prepared the buffers and are ready to go!\n");
 
     gettimeofday(&ptBegin, NULL);
-    err = queue.enqueueWriteBuffer(inCL,
+    err = queue.enqueueWriteBuffer(
+				   inCL,
 				   CL_TRUE,
 				   0,
 				   sizeof(evt_arrays),
 				   evt);
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueWriteBuffer()");
     
-    err = queue.enqueueNDRangeKernel(kernel,
+    err = queue.enqueueNDRangeKernel(
+				     kernel_fep_comb,
 				     cl::NullRange,
 				     cl::NDRange(NEVTS*MAXROAD),
 				     cl::NDRange(MAXROAD),
@@ -327,20 +352,45 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
 
     event.wait();
-    printf("We made it here (1)...\n");
-    printf("fep_dev = %p\n", fep_dev);
+
+
+    err = queue.enqueueNDRangeKernel(
+				     kernel_fep_set,
+				     cl::NullRange,
+				     cl::NDRange(NEVTS*MAXCOMB,MAXROAD),
+				     cl::NDRange(MAXCOMB,1),
+				     NULL,
+				     &event);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+
+    event.wait();
+
+    //printf("We made it here (1)...\n");
+    //printf("fep_dev = %p\n", fep_dev);
     //		     rdtscl(start);
-    err = queue.enqueueReadBuffer(outCL,
+    err = queue.enqueueReadBuffer(
+				  outCL,
 				  CL_TRUE,
 				  0,
 				  sizeof(fep_arrays),
 				  fep_dev);
-    printf("We made it here (2)...\n");
+    //printf("We made it here (2)...\n");
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
     //		     rdtscl(start);
     gettimeofday(&ptEnd, NULL);
     printf("Time to do combinations, OpenCL: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    for(int ie=0; ie<NEVTS; ie++){
+      printf("\nEvent %d, nroads = %d, workdim=%d",ie,fep_dev->fep_nroads[ie],fep_dev->fep_err[ie][0]);
+      for(int ir=0; ir<MAXROAD; ir++){
+	if(fep_dev->fep_ncmb[ie][ir]!=0)
+	  printf("\n\tRoad %d, ncomb = %d",ir,fep_dev->fep_ncmb[ie][ir]);
+	for(int ic=0; ic<fep_dev->fep_ncmb[ie][ir]; ic++){
+	  printf("\n\t\t ncomb5h=%d",fep_dev->fep_ncomb5h[ie][ir][ic]);
+	}
+      }
+    }
 
 
     set_outcable(tf);   

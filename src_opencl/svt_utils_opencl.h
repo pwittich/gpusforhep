@@ -26,6 +26,8 @@ struct evt_arrays {
   int evt_road[NEVTS][MAXROAD];
   int evt_ee_word[NEVTS];
 
+  int totEvts;
+
 };
 
 

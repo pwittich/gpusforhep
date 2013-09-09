@@ -1257,7 +1257,7 @@ int word_decode(int word, int xft, int *ee_word, int *parity_in, int *sector, in
  /* 
   * Unpack the input words into the FEP 
   */
-int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data_in, int* totEvts) {
+int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data_in) {
  
    int id, gf_xft,id_last = -1;
    int ee_word, parity_in, sector, amroad, crv, crv_sign, phi, zid, lcl, hit, err_sum; 
@@ -1266,7 +1266,7 @@ int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data_in, int* totEv
    evt = EVT;
    
    gf_xft = 0;
-   totEvts = 0;
+   tf->totEvts = 0;
 
    // initializing arrays
    
@@ -1354,7 +1354,7 @@ int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data_in, int* totEv
        printf("id==EE_LYR --> ee_word = %.6x\n", ee_word);
 #endif
        tf->evt_ee_word[evt] = ee_word;
-       totEvts++;
+       tf->totEvts++;
 #ifdef DEBUG_SVT
        printf("tf->evt_ee_word[%d] = %.6x\n", evt, tf->evt_ee_word[evt]);
 #endif

@@ -7,7 +7,7 @@ extern "C" {
   int gf_init_evt(evt_arrays_t* ptr_evt);
   int svtsim_fconread(tf_arrays_t tf);
   int gf_fep_unpack(tf_arrays_t tf, int n_words_in, void* data);
-  int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data, int* totEvts);
+  int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data);
   int gf_fep_comb(tf_arrays_t tf);
   int gf_comparator(tf_arrays_t tf);
   int gf_fit(tf_arrays_t tf);
