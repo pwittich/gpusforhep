@@ -6,8 +6,6 @@
 
 #include <sched.h>
 #include "semaphore.c"
-
-
 #include <thrust/device_vector.h>
 
 
@@ -307,14 +305,17 @@ int main(int argc, char* argv[]) {
 
   float initg = 0;
   float fcon = 0;
+  float timerange = 0;
   float ptime[6];
+  float ptime_cpu[3];
   float times_array[7][N_LOOPS];
+  float times_array_cpu[4][N_LOOPS];
   cycles_t time_start;
   cycles_t time_stop;
 
   struct timeval tBegin, tEnd;
 
-  if ( strcmp(where,"gpu") == 0 ) {
+  if ( strcmp(where,"gpu") == 0 ) { // GPU
 
     if ( TIMER ) gettimeofday(&tBegin, NULL);
     
@@ -343,8 +344,9 @@ int main(int argc, char* argv[]) {
     return 2;
   }
   
+  // read input data file
   char word[16];
-  int k=0;
+  int k=0; // number of words read
   while (fscanf(hbout, "%s", word) != EOF) {
     hexaval = strtol(word,NULL,16);
     data_send[k] = hexaval;
@@ -354,7 +356,6 @@ int main(int argc, char* argv[]) {
   fclose(hbout);
 
   tf_arrays_t tf;
-
   gf_init(&tf);
   svtsim_fconread(tf);
 
@@ -362,7 +363,7 @@ int main(int argc, char* argv[]) {
   
   struct extra_data *edata_dev;
 
-  if ( strcmp(where,"cpu") != 0 ) {
+  if ( strcmp(where,"cpu") != 0 ) { // GPU
     if ( TIMER ) start_time();
     MY_CUDA_CHECK(cudaMalloc((void**)&edata_dev, sizeof(struct extra_data)));
     setedata_GPU(tf, edata_dev);
@@ -384,9 +385,10 @@ int main(int argc, char* argv[]) {
 
       if ( TIMER) {
         gettimeofday(&ptEnd, NULL);
-        printf("Time to CPU unpack: %.3f ms\n",
-              ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
-  
+        timerange = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
+        if ( VERBOSE ) printf("Time to CPU unpack: %.3f ms\n", timerange);
+        ptime_cpu[0] = timerange;
+ 
         gettimeofday(&ptBegin, NULL);
       }
         
@@ -394,8 +396,9 @@ int main(int argc, char* argv[]) {
       
       if ( TIMER) {
         gettimeofday(&ptEnd, NULL);
-        printf("Time to CPU comb: %.3f ms\n",
-              ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+        timerange = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
+        if ( VERBOSE )  printf("Time to CPU comb: %.3f ms\n", timerange);
+        ptime_cpu[1] = timerange;
 
         gettimeofday(&ptBegin, NULL);
       }
@@ -405,8 +408,10 @@ int main(int argc, char* argv[]) {
       
       if ( TIMER) {
         gettimeofday(&ptEnd, NULL);
-        printf("Time to CPU fit: %.3f ms\n",
-              ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+        timerange = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
+        if ( VERBOSE ) printf("Time to CPU fit: %.3f ms\n", timerange);
+        ptime_cpu[2] = timerange;
+  
         time_stop=get_cycles();
       }
       if ( VERBOSE ) printf(".... fits %d events! \n", tf->totEvts);
@@ -419,16 +424,22 @@ int main(int argc, char* argv[]) {
       set_outcable(tf);   
       if ( TIMER ) time_stop=get_cycles();
     }
- 
+
     if ( TIMER ) {
-      if ( n_iters < N_LOOPS ) {
+      if ( n_iters < N_LOOPS ) { // skip the first "skip" iterations
         float time_us = cycles_to_ns(time_stop-time_start)/1000000.0;
-        times_array[0][n_iters] = time_us;
-        for (int t=1; t < 7; ++t) 
-          times_array[t][n_iters] = ptime[t-1];
+        if ( strcmp(where,"cpu") != 0 ) { // GPU
+          times_array[0][n_iters] = time_us;
+          for (int t=1; t < 7; ++t) 
+            times_array[t][n_iters] = ptime[t-1];
+        } else { //CPU
+          times_array_cpu[0][n_iters] = time_us; 
+          for (int t=1; t < 4; ++t)
+            times_array_cpu[t][n_iters] = ptime_cpu[t-1];
+        }
       }
     }
-  }
+  } // end iterations
 
   if ( strcmp(where,"cpu") != 0 ) {
     MY_CUDA_CHECK(cudaFree(edata_dev));
@@ -436,44 +447,63 @@ int main(int argc, char* argv[]) {
 
   if ( TIMER ) {
     gettimeofday(&tEnd, NULL);
-    if ( VERBOSE )
-      printf("Time to complete all: %.3f ms\n", 
-              ((tEnd.tv_usec + 1000000 * tEnd.tv_sec) - (tBegin.tv_usec + 1000000 * tBegin.tv_sec))/1000.0);
+    timerange = ((tEnd.tv_usec + 1000000 * tEnd.tv_sec) - (tBegin.tv_usec + 1000000 * tBegin.tv_sec))/1000.0;
+    if ( VERBOSE ) printf("Time to complete all: %.3f ms\n", timerange); 
   }
 
   // write output file
   FILE* OUTCHECK = fopen(fileOut, "w");
-
   for (int i=0; i< tf->out->ndata; i++)
     fprintf(OUTCHECK,"%.6x\n", tf->out->data[i]);
-
   fclose(OUTCHECK);
   
+  // write file with times
   if ( TIMER ) {
-    float mean[7];
-    float stdev[7];
-    for (int t=0; t < 7; ++t) 
-      get_mean(times_array[t], N_LOOPS, &mean[t], &stdev[t]);
-
     char fileTimes[1024];
-    sprintf(fileTimes, "ListTimes-Evts_%d_Loops_%d.txt", NEVTS, N_LOOPS);
-
     FILE *ft;
-    ft = fopen(fileTimes, "w");
-    fprintf(ft,"# #NEvts: %d, Loops: %d, mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[0], stdev[0]);
-    fprintf(ft,"# initialize GPU: %.3f ms; copy detector configuration data: %.3f ms\n", initg, fcon);
-    fprintf(ft,"# input copy and initialize        --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[1], stdev[1]);
-    fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[2], stdev[2]);
-    fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[3], stdev[3]);
-    fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[4], stdev[4]);
-    fprintf(ft,"# copy output (DtoH)               --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[5], stdev[5]);
-    fprintf(ft,"# cudaFree structures              --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[6], stdev[6]);
+    if ( strcmp(where,"cpu") != 0 ) { // GPU
+      float mean[7];
+      float stdev[7];
+      for (int t=0; t < 7; ++t) 
+        get_mean(times_array[t], N_LOOPS, &mean[t], &stdev[t]);
+
+      sprintf(fileTimes, "ListTimesGPU-Evts_%d_Loops_%d.txt", NEVTS, N_LOOPS);
+
+      ft = fopen(fileTimes, "w");
+      fprintf(ft,"# #NEvts: %d, Loops: %d, mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[0], stdev[0]);
+      fprintf(ft,"# initialize GPU: %.3f ms; copy detector configuration data: %.3f ms\n", initg, fcon);
+      fprintf(ft,"# input copy and initialize        --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[1], stdev[1]);
+      fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[2], stdev[2]);
+      fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[3], stdev[3]);
+      fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[4], stdev[4]);
+      fprintf(ft,"# copy output (DtoH)               --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[5], stdev[5]);
+      fprintf(ft,"# cudaFree structures              --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[6], stdev[6]);
     
 
-    for (int j=0 ; j < (N_LOOPS); j++) {
-      for (int t=0; t < 7; ++t)
-        fprintf(ft,"%.3f ",times_array[t][j]);
-      fprintf(ft,"\n");
+      for (int j=0 ; j < (N_LOOPS); j++) {
+        for (int t=0; t < 7; ++t)
+          fprintf(ft,"%.3f ",times_array[t][j]);
+        fprintf(ft,"\n");
+      }
+    } else { // CPU
+      float mean[4];
+      float stdev[4];
+      for (int t=0; t < 4; ++t)
+        get_mean(times_array_cpu[t], N_LOOPS, &mean[t], &stdev[t]);
+
+      sprintf(fileTimes, "ListTimesCPU-Evts_%d_Loops_%d.txt", NEVTS, N_LOOPS);
+
+      ft = fopen(fileTimes, "w");
+      fprintf(ft,"# #NEvts: %d, Loops: %d, mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[0], stdev[0]);
+      fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[1], stdev[1]);
+      fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[2], stdev[2]);
+      fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[3], stdev[3]);
+
+      for (int j=0 ; j < (N_LOOPS); j++) {
+        for (int t=0; t < 4; ++t)
+          fprintf(ft,"%.3f ",times_array_cpu[t][j]);
+        fprintf(ft,"\n");
+      }
     }
 
     fclose(ft);
@@ -487,7 +517,8 @@ int main(int argc, char* argv[]) {
     unlock(semid);
   }
 
-  delete data_send;
+  free(data_send);
+  free(tf);
 
   return 0;
 }
