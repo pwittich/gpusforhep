@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
   svtsim_fconread(tf);
 
   struct evt_arrays *evt; int totEvts;
-  struct fep_arrays *fep_dev;
+  struct fep_arrays *fep_dev = new fep_arrays;
 
   gf_init_evt(&evt);
 
@@ -327,14 +327,15 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
 
     event.wait();
-    printf("We made it here...\n");
+    printf("We made it here (1)...\n");
+    printf("fep_dev = %p\n", fep_dev);
     //		     rdtscl(start);
     err = queue.enqueueReadBuffer(outCL,
 				  CL_TRUE,
 				  0,
 				  sizeof(fep_arrays),
 				  fep_dev);
-    printf("We made it here...\n");
+    printf("We made it here (2)...\n");
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
     //		     rdtscl(start);
     gettimeofday(&ptEnd, NULL);
