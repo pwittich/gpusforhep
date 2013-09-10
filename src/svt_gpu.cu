@@ -122,7 +122,7 @@ void setedata_GPU(tf_arrays_t tf, struct extra_data *edata_dev) {
 }
 
 
-void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in, int n_words, float *timer) {
+void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in, int n_words, float *timer, int nothrust) {
 
   int tEvts=0;
   dim3 blocks(NEVTS,MAXROAD);
@@ -143,16 +143,35 @@ void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in
   // initialize structures
   init_arrays_GPU<<<blocks, NSVX_PLANE+1>>>(fout_dev, evt_dev, d_tEvts);
 
-  thrust::device_vector<unsigned int> d_vec(n_words+1);
-  d_vec[0] = 0;
-  thrust::copy(data_in, data_in + n_words, d_vec.begin()+1);
+  if ( nothrust ) { // use pure cuda version of unpack
+    
+    unsigned int *d_data_in;
+    long sizeW = sizeof(int) * n_words;
+    cudaMalloc((void **)&d_data_in, sizeW);
 
-  timer[0] = stop_time("input copy and initialize");
+    cudaMemcpy(d_data_in, data_in, sizeW, cudaMemcpyHostToDevice);
 
-  start_time();
-  // Unpack
-  gf_unpack_GPU(d_vec, n_words, evt_dev, d_tEvts );
-//  gf_unpack_GPU(data_in, n_words, evt_dev, d_tEvts );
+    timer[0] = stop_time("input copy and initialize");
+
+    start_time();
+
+    gf_unpack_cuda_GPU(d_data_in, n_words, evt_dev, d_tEvts );
+
+    cudaFree(d_data_in);
+
+  } else { // use thrust version of unpack
+
+    thrust::device_vector<unsigned int> d_vec(n_words+1);
+    d_vec[0] = 0;
+    thrust::copy(data_in, data_in + n_words, d_vec.begin()+1);
+
+    timer[0] = stop_time("input copy and initialize");
+
+    start_time();
+
+    gf_unpack_thrust_GPU(d_vec, n_words, evt_dev, d_tEvts );
+
+  } 
 
   timer[1] = stop_time("input unpack");
 
@@ -203,11 +222,12 @@ void set_outcable(tf_arrays_t tf) {
 
 void help(char* prog) {
 
-  printf("Use %s [-i fileIn] [-o fileOut] [-s cpu || gpu] [-l #loops] [-v] [-t] [-p priority] [-h] \n\n", prog);
+  printf("Use %s [-i fileIn] [-o fileOut] [-s cpu || gpu] [-l #loops] [-u] [-v] [-t] [-p priority] [-h] \n\n", prog);
   printf("  -i fileIn       Input file (Default: hbout_w6_100evts).\n");
   printf("  -o fileOut      Output file (Default: gfout.txt).\n");
   printf("  -s cpu || gpu   Switch between CPU or GPU version (Default: gpu).\n");
   printf("  -l loops        Number of executions (Default: 1).\n");
+  printf("  -u              Use pure cuda version for unpack (Default: use thrust version).\n");
   printf("  -v              Print verbose messages.\n");
   printf("  -t              Calculate timing.\n");
   printf("  -p priority     Set scheduling priority to <priority> and cpu affinity - you nedd to be ROOT - (Default: disable).\n");
@@ -224,8 +244,9 @@ int main(int argc, char* argv[]) {
   char* where = "gpu";
   int N_LOOPS = 1;
   int PRIORITY = 0;
+  int NOTHRUST = 0;
 
-  while ( (c = getopt(argc, argv, "i:s:o:l:vtp:h")) != -1 ) {
+  while ( (c = getopt(argc, argv, "i:s:o:l:uvtp:h")) != -1 ) {
     switch(c) {
       case 'i': 
         fileIn = optarg;
@@ -241,6 +262,9 @@ int main(int argc, char* argv[]) {
         break;
       case 'v':
         VERBOSE = 1;
+        break;
+      case 'u':
+        NOTHRUST = 1;
         break;
       case 't':
         TIMER = 1;
@@ -419,7 +443,7 @@ int main(int argc, char* argv[]) {
 
     } else { // GPU
       if ( TIMER ) time_start=get_cycles();
-      svt_GPU(tf, edata_dev, data_send, k, ptime);
+      svt_GPU(tf, edata_dev, data_send, k, ptime, NOTHRUST);
       // build "cable" output structure
       set_outcable(tf);   
       if ( TIMER ) time_stop=get_cycles();

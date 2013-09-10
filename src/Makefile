@@ -1,5 +1,5 @@
-#CUDA_DIR=/usr/local/cuda-5.0
-CUDA_DIR=/opt/cuda
+CUDA_DIR=/usr/local/cuda-5.0
+#CUDA_DIR=/opt/cuda
 CUDA_SDK_DIR=/opt/cuda/sdk
 
 INCFLAG=-I$(CUDA_DIR)/include -I$(CUDA_SDK_DIR)/C/common/inc -I..
@@ -18,7 +18,7 @@ NVCC = nvcc
 #NVCCFLAGS = -g $(INCFLAG) --verbose $(GENCODE_SM20) #-DTHRUST_DEBUG
 
 #NVCCFLAGS = -O3 $(INCFLAG)  --use_fast_math $(GENCODE_SM13) #use to compile on l2gpu with GTX285
-NVCCFLAGS = -O3 $(INCFLAG)  --use_fast_math $(GENCODE_SM35)
+NVCCFLAGS = -O3 $(INCFLAG)  --use_fast_math $(GENCODE_SM20)
 
 
 LIBS=-L/home/wittich/src/cudpp_install_2.0/lib -lcudpp
@@ -30,7 +30,7 @@ LIBS=-L/home/wittich/src/cudpp_install_2.0/lib -lcudpp
 
 all: svt_gpu 
 
-svt_gpu: svt_gpu.o gf_unpack.o gf_fep.o gf_fit.o svtsim_functions.o
+svt_gpu: svt_gpu.o gf_unpack_cuda.o gf_unpack_thrust.o gf_fep.o gf_fit.o svtsim_functions.o
 	$(NVCC) $^ -o $@ 
 
 s2: s2.o
