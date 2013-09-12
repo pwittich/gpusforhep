@@ -132,6 +132,8 @@ int main(int argc, char* argv[]) {
 
   struct evt_arrays *evt; int totEvts;
   struct fep_arrays *fep_dev = new fep_arrays;
+  struct extra_data *edata_dev = new extra_data;
+  struct fit_arrays *fit_dev = new fit_arrays;
 
   gf_init_evt(&evt);
 
@@ -194,6 +196,10 @@ int main(int argc, char* argv[]) {
     dev_i = 0;
     plat_i = 1;	
     
+    //this is for CPU...
+    //dev_i = 0;
+    //plat_i = 0;	
+
     //============================================================================
     //============================================================================
     //============================================================================
@@ -280,6 +286,20 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
     std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_set << std::endl;
 
+    //====================================
+    //set kernel entry point
+    std::string kernelFunc_kFit = "kFit";
+    cl::Kernel kernel_kFit(program, kernelFunc_kFit.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_kFit << std::endl;
+    /*
+    //====================================
+    //set kernel entry point
+    std::string kernelFunc_fit_format = "gf_fit_format_GPU";
+    cl::Kernel kernel_fep_set(program, kernelFunc_fep_set.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_set << std::endl;
+    */
     // Get the maximum work group size for executing the kernel on the device
     
     cl::NDRange maxWorkGroupSize;
@@ -296,8 +316,10 @@ int main(int argc, char* argv[]) {
     
     avgTime = 0;
     
-    
-    cl::Buffer inCL(
+    std::cout << "device type " << CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) << std::endl;
+
+
+    cl::Buffer evt_CL(
 		    context,
 		    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 		    0:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -306,17 +328,34 @@ int main(int argc, char* argv[]) {
 		    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
     
-    cl::Buffer outCL(
+    cl::Buffer fit_dev_CL(
+			  context,
+			  CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			  CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+			  sizeof(fit_arrays),
+			  fit_dev,
+			  &err);
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+
+    cl::Buffer fep_dev_CL(
 		     context,
 		     CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
-		     0:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+		     CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 		     sizeof(fep_arrays),
 		     fep_dev,
 		     &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
     
-
-
+    
+    cl::Buffer edata_dev_CL(
+			    context,
+			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+			    sizeof(extra_data),
+			    edata_dev,
+			    &err);
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+    
     gettimeofday(&ptBegin, NULL);
     gf_fep_unpack_evt(evt, k, data_send);
     printf("Total events %d\n\n",evt->totEvts);
@@ -324,18 +363,25 @@ int main(int argc, char* argv[]) {
     printf("Time to CPU unpack: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
-    err = kernel_fep_comb.setArg(0, inCL);
-    err = kernel_fep_comb.setArg(1, outCL);
+    err = kernel_fep_comb.setArg(0, evt_CL);
+    err = kernel_fep_comb.setArg(1, fep_dev_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
     printf("We have prepared the buffers and are ready to go!\n");
-    err = kernel_fep_set.setArg(0, inCL);
-    err = kernel_fep_set.setArg(1, outCL);
+    err = kernel_fep_set.setArg(0, evt_CL);
+    err = kernel_fep_set.setArg(1, fep_dev_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_kFit.setArg(0, fep_dev_CL);
+    err = kernel_kFit.setArg(1, edata_dev_CL);
+    err = kernel_kFit.setArg(2, fit_dev_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
     printf("We have prepared the buffers and are ready to go!\n");
 
+    printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
+	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
+
     gettimeofday(&ptBegin, NULL);
     err = queue.enqueueWriteBuffer(
-				   inCL,
+				   evt_CL,
 				   CL_TRUE,
 				   0,
 				   sizeof(evt_arrays),
@@ -365,11 +411,54 @@ int main(int argc, char* argv[]) {
 
     event.wait();
 
+    err = queue.finish();
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish1()");
+        
+    err = queue.enqueueNDRangeKernel(
+				     kernel_kFit,
+				     cl::NullRange,
+				     cl::NDRange(NEVTS*MAXCOMB,MAXROAD*NFITTER),
+				     cl::NDRange(MAXCOMB,NFITTER),
+				     NULL,
+				     &event);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+
+    event.wait();
+
+    err = queue.finish();
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
+
+    err = queue.enqueueReadBuffer(
+				  fep_dev_CL,
+				  CL_TRUE,
+				  0,
+				  sizeof(fep_arrays),
+				  fep_dev);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
+
+    
+    err = queue.enqueueReadBuffer(
+				  fit_dev_CL,
+				  CL_TRUE,
+				  0,
+				  sizeof(fit_arrays),
+				  fit_dev);
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+
+    err = queue.enqueueReadBuffer(
+				  edata_dev_CL,
+				  CL_TRUE,
+				  0,
+				  sizeof(extra_data),
+				  edata_dev);
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+
     //printf("We made it here (1)...\n");
     //printf("fep_dev = %p\n", fep_dev);
     //		     rdtscl(start);
+    /*
     err = queue.enqueueReadBuffer(
-				  outCL,
+				  fep_dev_CL,
 				  CL_TRUE,
 				  0,
 				  sizeof(fep_arrays),
@@ -377,12 +466,13 @@ int main(int argc, char* argv[]) {
     //printf("We made it here (2)...\n");
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
     //		     rdtscl(start);
+    */
     gettimeofday(&ptEnd, NULL);
     printf("Time to do combinations, OpenCL: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
     for(int ie=0; ie<NEVTS; ie++){
-      printf("\nEvent %d, nroads = %d, workdim=%d",ie,fep_dev->fep_nroads[ie],fep_dev->fep_err[ie][0]);
+      printf("\nEvent %d, nroads = %d, fep_err_sum=%d, fit_err_sum=%d",ie,fep_dev->fep_nroads[ie],fep_dev->fep_err_sum[ie],fit_dev->fit_err_sum[ie]);
       for(int ir=0; ir<MAXROAD; ir++){
 	if(fep_dev->fep_ncmb[ie][ir]!=0)
 	  printf("\n\tRoad %d, ncomb = %d",ir,fep_dev->fep_ncmb[ie][ir]);

@@ -69,6 +69,8 @@ struct fit_arrays {
   int fit_err[NEVTS][MAXROAD][MAXCOMB][MAXCOMB5H];
   int fit_err_sum[NEVTS];
 
+  //int dummy;
+
 };
 
 struct fout_arrays {
