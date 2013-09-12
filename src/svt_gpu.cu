@@ -194,15 +194,13 @@ void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in
   MY_CUDA_CHECK(cudaMemcpy(tf->fout_ntrks, fout_dev->fout_ntrks, NEVTS * sizeof(int), cudaMemcpyDeviceToHost));
   MY_CUDA_CHECK(cudaMemcpy(tf->fout_ee_word, fout_dev->fout_ee_word, NEVTS * sizeof(int), cudaMemcpyDeviceToHost));
   MY_CUDA_CHECK(cudaMemcpy(tf->fout_gfword, fout_dev->fout_gfword, NEVTS * MAXROAD * MAXCOMB * NTFWORDS * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-  timer[4] = stop_time("copy output (DtoH)");
 
-  start_time();
   MY_CUDA_CHECK( cudaFree(evt_dev) );
   MY_CUDA_CHECK( cudaFree(fep_dev) );
   MY_CUDA_CHECK( cudaFree(fit_dev) );
   MY_CUDA_CHECK( cudaFree(fout_dev));
   MY_CUDA_CHECK( cudaFree(d_tEvts));
-  timer[5] = stop_time("cudaFree structures");
+  timer[4] = stop_time("copy output (DtoH)");
 
 }
 
@@ -330,14 +328,15 @@ int main(int argc, char* argv[]) {
   float initg = 0;
   float fcon = 0;
   float timerange = 0;
-  float ptime[6];
+  float ptime[5];
   float ptime_cpu[3];
-  float times_array[7][N_LOOPS];
+  float times_array[6][N_LOOPS];
   float times_array_cpu[4][N_LOOPS];
   cycles_t time_start;
   cycles_t time_stop;
 
   struct timeval tBegin, tEnd;
+  struct timeval ptBegin, ptEnd;
 
   if ( strcmp(where,"gpu") == 0 ) { // GPU
 
@@ -399,8 +398,6 @@ int main(int argc, char* argv[]) {
     if ( strcmp(where,"cpu") == 0 ) { // CPU
       if ( TIMER ) time_start = get_cycles();
       
-      struct timeval ptBegin, ptEnd;
-
       if ( VERBOSE ) printf("Start work on CPU..... \n");
       
       if ( TIMER ) gettimeofday(&ptBegin, NULL);
@@ -444,9 +441,16 @@ int main(int argc, char* argv[]) {
     } else { // GPU
       if ( TIMER ) time_start=get_cycles();
       svt_GPU(tf, edata_dev, data_send, k, ptime, NOTHRUST);
+      if ( TIMER ) gettimeofday(&ptBegin, NULL);
       // build "cable" output structure
-      set_outcable(tf);   
-      if ( TIMER ) time_stop=get_cycles();
+      set_outcable(tf);  
+      if ( TIMER ) { 
+        gettimeofday(&ptEnd, NULL);
+        timerange = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
+        if ( VERBOSE ) printf("Time to set_outcable on CPU: %.3f ms\n", timerange);
+        ptime[3] += timerange; // this time is computed in fit/fout section
+        time_stop=get_cycles();
+      }
     }
 
     if ( TIMER ) {
@@ -454,7 +458,7 @@ int main(int argc, char* argv[]) {
         float time_us = cycles_to_ns(time_stop-time_start)/1000000.0;
         if ( strcmp(where,"cpu") != 0 ) { // GPU
           times_array[0][n_iters] = time_us;
-          for (int t=1; t < 7; ++t) 
+          for (int t=1; t < 6; ++t) 
             times_array[t][n_iters] = ptime[t-1];
         } else { //CPU
           times_array_cpu[0][n_iters] = time_us; 
@@ -486,9 +490,9 @@ int main(int argc, char* argv[]) {
     char fileTimes[1024];
     FILE *ft;
     if ( strcmp(where,"cpu") != 0 ) { // GPU
-      float mean[7];
-      float stdev[7];
-      for (int t=0; t < 7; ++t) 
+      float mean[6];
+      float stdev[6];
+      for (int t=0; t < 6; ++t) 
         get_mean(times_array[t], N_LOOPS, &mean[t], &stdev[t]);
 
       sprintf(fileTimes, "ListTimesGPU-Evts_%d_Loops_%d.txt", NEVTS, N_LOOPS);
@@ -496,16 +500,15 @@ int main(int argc, char* argv[]) {
       ft = fopen(fileTimes, "w");
       fprintf(ft,"# #NEvts: %d, Loops: %d, mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[0], stdev[0]);
       fprintf(ft,"# initialize GPU: %.3f ms; copy detector configuration data: %.3f ms\n", initg, fcon);
-      fprintf(ft,"# input copy and initialize        --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[1], stdev[1]);
-      fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[2], stdev[2]);
-      fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[3], stdev[3]);
-      fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[4], stdev[4]);
-      fprintf(ft,"# copy output (DtoH)               --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[5], stdev[5]);
-      fprintf(ft,"# cudaFree structures              --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[6], stdev[6]);
+      fprintf(ft,"# input copy and initialize        --> mean: %.3f ms, stdev: %.3f ms\n", mean[1], stdev[1]);
+      fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", mean[2], stdev[2]);
+      fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", mean[3], stdev[3]);
+      fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", mean[4], stdev[4]);
+      fprintf(ft,"# copy output (DtoH)               --> mean: %.3f ms, stdev: %.3f ms\n", mean[5], stdev[5]);
     
 
       for (int j=0 ; j < (N_LOOPS); j++) {
-        for (int t=0; t < 7; ++t)
+        for (int t=0; t < 6; ++t)
           fprintf(ft,"%.3f ",times_array[t][j]);
         fprintf(ft,"\n");
       }
@@ -519,9 +522,9 @@ int main(int argc, char* argv[]) {
 
       ft = fopen(fileTimes, "w");
       fprintf(ft,"# #NEvts: %d, Loops: %d, mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[0], stdev[0]);
-      fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[1], stdev[1]);
-      fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[2], stdev[2]);
-      fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", NEVTS, N_LOOPS, mean[3], stdev[3]);
+      fprintf(ft,"# input unpack                     --> mean: %.3f ms, stdev: %.3f ms\n", mean[1], stdev[1]);
+      fprintf(ft,"# compute fep combinations         --> mean: %.3f ms, stdev: %.3f ms\n", mean[2], stdev[2]);
+      fprintf(ft,"# fit data and set output          --> mean: %.3f ms, stdev: %.3f ms\n", mean[3], stdev[3]);
 
       for (int j=0 ; j < (N_LOOPS); j++) {
         for (int t=0; t < 4; ++t)
