@@ -25,44 +25,6 @@ namespace mic {
 inline void empty() {
 }
 
-// unpack section
-
-inline void init(evt_arrays*& evt_dev, fep_arrays*& fep_dev, fit_arrays*& fit_dev, fout_arrays*& fout_dev )
-{
-  evt_dev = new evt_arrays;
-/*
-  memset(evt_dev->evt_nroads,  0, sizeof(evt_dev->evt_nroads));
-  memset(evt_dev->evt_err_sum, 0, sizeof(evt_dev->evt_err_sum));
-  memset(evt_dev->evt_layerZ,  0, sizeof(evt_dev->evt_layerZ));
-  memset(evt_dev->evt_nhits,   0, sizeof(evt_dev->evt_nhits));
-  memset(evt_dev->evt_err,     0, sizeof(evt_dev->evt_err));
-  memset(evt_dev->evt_zid,     0, sizeof(evt_dev->evt_zid));
-*/
-  fep_dev = new fep_arrays;
-/*
-  memset(fep_dev->fep_ncmb,  0, sizeof(fep_dev->fep_ncmb));
-  memset(fep_dev->fep_zid,  0, sizeof(fep_dev->fep_zid));
-  memset(fep_dev->fep_road,  0, sizeof(fep_dev->fep_road));
-  memset(fep_dev->fep_sect,  0, sizeof(fep_dev->fep_sect));
-  memset(fep_dev->fep_cable_sect,  0, sizeof(fep_dev->fep_cable_sect));
-  memset(fep_dev->fep_err,  0, sizeof(fep_dev->fep_err));
-  memset(fep_dev->fep_lcl,  0, sizeof(fep_dev->fep_lcl));
-  memset(fep_dev->fep_hitmap,  0, sizeof(fep_dev->fep_hitmap));
-  memset(fep_dev->fep_phi,  0, sizeof(fep_dev->fep_phi));
-  memset(fep_dev->fep_crv,  0, sizeof(fep_dev->fep_crv));
-  memset(fep_dev->fep_lclforcut,  0, sizeof(fep_dev->fep_lclforcut));
-  memset(fep_dev->fep_ncomb5h,  0, sizeof(fep_dev->fep_ncomb5h));
-  memset(fep_dev->fep_crv_sign,  0, sizeof(fep_dev->fep_crv_sign));
-  memset(fep_dev->fep_hit,  0, sizeof(fep_dev->fep_hit));
-  memset(fep_dev->fep_hitZ,  0, sizeof(fep_dev->fep_hitZ));
-*/
-
-  fit_dev = new fit_arrays;
-  fout_dev = new fout_arrays;
-
-
-}
-
 inline void destroy(evt_arrays* evt_dev, fep_arrays* fep_dev, fit_arrays* fit_dev, fout_arrays* fout_dev)
 {
   delete evt_dev;
@@ -70,6 +32,23 @@ inline void destroy(evt_arrays* evt_dev, fep_arrays* fep_dev, fit_arrays* fit_de
   delete fit_dev;
   delete fout_dev;
   
+}
+
+// unpack section
+
+inline void init_evt(evt_arrays*& evt_dev, fep_arrays*& fep_dev)
+{
+  evt_dev = new evt_arrays;
+
+  memset(evt_dev->evt_nroads,  0, sizeof(evt_dev->evt_nroads));
+  memset(evt_dev->evt_err_sum, 0, sizeof(evt_dev->evt_err_sum));
+  memset(evt_dev->evt_layerZ,  0, sizeof(evt_dev->evt_layerZ));
+  memset(evt_dev->evt_nhits,   0, sizeof(evt_dev->evt_nhits));
+  memset(evt_dev->evt_err,     0, sizeof(evt_dev->evt_err));
+  memset(evt_dev->evt_zid,     0, sizeof(evt_dev->evt_zid));
+
+  fep_dev = new fep_arrays;
+
 }
 
 typedef thrust::tuple<unsigned int, unsigned int>     DataTuple;
@@ -302,6 +281,18 @@ inline void gf_unpack(unsigned int const* data_in, int n_words, evt_arrays* evt_
 
 // fep section
 
+inline void init_fep(fep_arrays*& fep_dev, int ie)
+{
+
+  memset(fep_dev->fep_lcl[ie],  0, MAXROAD*MAXCOMB*sizeof(int));
+  memset(fep_dev->fep_hitmap[ie],  0, MAXROAD*MAXCOMB*sizeof(int));
+  memset(fep_dev->fep_phi[ie],  0, MAXROAD*MAXCOMB*sizeof(int));
+  memset(fep_dev->fep_crv[ie],  0, MAXROAD*MAXCOMB*sizeof(int));
+  memset(fep_dev->fep_lclforcut[ie],  0, MAXROAD*MAXCOMB*sizeof(int));
+  memset(fep_dev->fep_hit[ie],  0, MAXROAD*MAXCOMB*NSVX_PLANE*sizeof(int));
+  memset(fep_dev->fep_hitZ[ie],  0, MAXROAD*MAXCOMB*NSVX_PLANE*sizeof(int));
+}
+
 inline void gf_fep_comb_Mic (evt_arrays* evt_dev, fep_arrays* fep_dev, int ie) {
 
   int nlyr; /* The number of layers with a hit */
@@ -371,16 +362,10 @@ inline void gf_fep_comb_Mic (evt_arrays* evt_dev, fep_arrays* fep_dev, int ie) {
 
 // fit section
 
-/*
- 
-inline void init_fout(fout_arrays*& fout_dev, fit_arrays*& fit_dev)
+inline void init_fit(fit_arrays*& fit_dev, fout_arrays*& fout_dev)
 {
+
   fit_dev = new fit_arrays;
-
-  memset(fit_dev->fit_fit, 0, sizeof(fit_dev->fit_fit));
-  memset(fit_dev->fit_err, 0, sizeof(fit_dev->fit_err));
-  memset(fit_dev->fit_err_sum, 0, sizeof(fit_dev->fit_err_sum));
-
   fout_dev = new fout_arrays;
 
   memset(fout_dev->fout_ntrks, 0, sizeof(fout_dev->fout_ntrks));
@@ -389,10 +374,7 @@ inline void init_fout(fout_arrays*& fout_dev, fit_arrays*& fit_dev)
   memset(fout_dev->fout_err_sum, 0,  sizeof(fout_dev->fout_err_sum));
   memset(fout_dev->fout_cdferr,  0,   sizeof(fout_dev->fout_cdferr));
   memset(fout_dev->fout_svterr,  0,   sizeof(fout_dev->fout_svterr));
-
 }
-
-*/
 
 int svtsim_whichFit_full_GPU(int layerMask, int lcMask) {
 
@@ -1616,6 +1598,7 @@ void svtsim_cable_copywords(svtsim_cable_t *cable, unsigned int *word, int nword
   svtsim_cable_addwords(cable, word, nword);
 }
 
+
 inline void set_outcable(fout_arrays* fout_dev, int totEvts, unsigned int *&data_rec, int &ow) {
 
   svtsim_cable_t *out;
@@ -1636,7 +1619,7 @@ inline void set_outcable(fout_arrays* fout_dev, int totEvts, unsigned int *&data
     data_rec[i] = out->data[i];
   }
 
-
+  svtsim_free(out);
 }
 
 
