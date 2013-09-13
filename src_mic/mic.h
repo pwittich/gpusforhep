@@ -27,10 +27,10 @@ inline void empty() {
 
 inline void destroy(evt_arrays* evt_dev, fep_arrays* fep_dev, fit_arrays* fit_dev, fout_arrays* fout_dev)
 {
-  delete evt_dev;
-  delete fep_dev;
-  delete fit_dev;
-  delete fout_dev;
+  free(evt_dev);
+  free(fep_dev);
+  free(fit_dev);
+  free(fout_dev);
   
 }
 
@@ -38,7 +38,8 @@ inline void destroy(evt_arrays* evt_dev, fep_arrays* fep_dev, fit_arrays* fit_de
 
 inline void init_evt(evt_arrays*& evt_dev, fep_arrays*& fep_dev)
 {
-  evt_dev = new evt_arrays;
+
+  evt_dev = (evt_arrays*)malloc(sizeof(evt_arrays));
 
   memset(evt_dev->evt_nroads,  0, sizeof(evt_dev->evt_nroads));
   memset(evt_dev->evt_err_sum, 0, sizeof(evt_dev->evt_err_sum));
@@ -47,7 +48,7 @@ inline void init_evt(evt_arrays*& evt_dev, fep_arrays*& fep_dev)
   memset(evt_dev->evt_err,     0, sizeof(evt_dev->evt_err));
   memset(evt_dev->evt_zid,     0, sizeof(evt_dev->evt_zid));
 
-  fep_dev = new fep_arrays;
+  fep_dev = (fep_arrays*)malloc(sizeof(fep_arrays));
 
 }
 
@@ -365,8 +366,8 @@ inline void gf_fep_comb_Mic (evt_arrays* evt_dev, fep_arrays* fep_dev, int ie) {
 inline void init_fit(fit_arrays*& fit_dev, fout_arrays*& fout_dev)
 {
 
-  fit_dev = new fit_arrays;
-  fout_dev = new fout_arrays;
+  fit_dev = (fit_arrays*)malloc(sizeof(fit_arrays));
+  fout_dev = (fout_arrays*)malloc(sizeof(fout_arrays));
 
   memset(fout_dev->fout_ntrks, 0, sizeof(fout_dev->fout_ntrks));
   memset(fout_dev->fout_parity, 0, sizeof(fout_dev->fout_parity));

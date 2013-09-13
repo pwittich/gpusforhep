@@ -177,8 +177,10 @@ int main(int argc, char* argv[]) {
   printf("Time to start mic: %.3f ms\n", initmic);
 
   printf("Start work on MIC...\n");
-  
-  int n_iters = N_LOOPS;
+ 
+  // Do we want to skip the first "skip" runs from mean calculation?
+  int skip = 5;
+  int n_iters = N_LOOPS+skip;
   float ptime[3];
   float times[4][N_LOOPS];
   int totEvts;
@@ -189,11 +191,12 @@ int main(int argc, char* argv[]) {
     gettimeofday(&tBegin, NULL);
     outword = svt_mic(*edata, data_send, numword, data_rec, &totEvts, ptime);
     gettimeofday(&tEnd, NULL);
-    times[0][n_iters] = ((tEnd.tv_usec + 1000000 * tEnd.tv_sec) - (tBegin.tv_usec + 1000000 * tBegin.tv_sec))/1000.0;
-    for (int i = 0; i < 3; i++)
-      times[i+1][n_iters] = ptime[i];
-
+    if ( n_iters < N_LOOPS ) { // skip the first "skip" iterations
+      times[0][n_iters] = ((tEnd.tv_usec + 1000000 * tEnd.tv_sec) - (tBegin.tv_usec + 1000000 * tBegin.tv_sec))/1000.0;
+      for (int i = 0; i < 3; i++)
+        times[i+1][n_iters] = ptime[i];
 //    printf("Time to fits %d events: %.3f ms\n", totEvts, times[0][n_iters]);
+    }
 
   }
 
