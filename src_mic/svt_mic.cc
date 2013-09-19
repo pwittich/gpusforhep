@@ -47,8 +47,31 @@ int svt_mic(extra_data edata, unsigned int *data_in, int n_words, unsigned int *
   // Unpack
   gettimeofday(&ptBegin, NULL);
 
+
+// without thrust
+  long sizeW = sizeof(int) * n_words;
+  int *ids  = (int *)malloc(sizeW);
+  int *out1 = (int *)malloc(sizeW);
+  int *out2 = (int *)malloc(sizeW);
+  int *out3 = (int *)malloc(sizeW);
+
+  #pragma omp parallel for
+  for (int idx=0; idx < n_words; idx++) {
+    mic::k_word_decode(idx, data_in, ids, out1, out2, out3);
+  }
+  mic::init_evt(evt_dev, fep_dev);
+  mic::gf_unpack_wot(n_words, ids, out1, out2, out3, evt_dev, totEvts);
+
+  free(ids);
+  free(out1);
+  free(out2);
+  free(out3);
+
+// thrust version
+/*
   mic::init_evt(evt_dev, fep_dev);
   mic::gf_unpack(data_in, n_words, evt_dev, totEvts);
+*/
 
   gettimeofday(&ptEnd, NULL);
   timer[0] = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
