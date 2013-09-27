@@ -1,0 +1,6 @@
+pdflatex TNS_GPU.tex
+pdflatex TNS_GPU.tex
+pdflatex TNS_GPU.tex
+acroread  TNS_GPU.pdf
+
+
