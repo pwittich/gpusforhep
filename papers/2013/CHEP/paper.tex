@@ -6,35 +6,34 @@
       urlcolor=blue,       % \href{...}{...} external (URL)
       filecolor=green,     % \href{...} local file
       linkcolor=red,       % \ref{...} and \pageref{...}
-      pdftitle={Papers by Peter Wittich},
-      pdfauthor={Peter Wittich},
-      pdfsubject={Just a test},
-      pdfkeywords={test testing testable},
       pagebackref,
       pdfpagemode=UseNone,
-       bookmarksopen=true]{hyperref}
+      bookmarksopen=true]{hyperref}
 
 
 \begin{document}
 % paper title
-\title{Applications of GPUs to Online Track Reconstruction in HEP Experiments}
+\title{Many-core applications to online track reconstruction in HEP experiments}
 % Author list
 \author{S.~Amerio$^1$, 
   D.~Bastieri$^1$, 
   M.~Corvo$^1$, 
   A.~Gianelle$^1$, 
+  W.~Ketchum$^2$,
+  T.~Liu$^3$, 
+  A.~Lonardo$^4$, 
   D.~Lucchesi$^1$,
-  T.~Liu$^2$, 
+  S.~Poprocki$^5$, 
   R.~Rivera$^2$, 
-  W.~Ketchum$^3$,
-  S.~Poprocki$^4$, P.~Wittich$^4$,
-  A.~Lonardo$^5$, and P.~Vicini$^5$
+  P.~Vicini$^4$
+  and 
+  P.~Wittich$^5$,
 }
 \address{$^1$ INFN and University of Padova, Italy}
-\address{$^2$ Fermi National Accelerator Laboratory, Illinois, USA}
-\address{$^3$ Los Alamos National Laboratory, New Mexico, USA}
-\address{$^4$ Cornell University, New York, USA}
-\address{$^5$ INFN Roma, Italy}
+\address{$^2$ Los Alamos National Laboratory, New Mexico, USA}
+\address{$^3$ Fermi National Accelerator Laboratory, Illinois, USA}
+\address{$^4$ INFN Roma, Italy}
+\address{$^5$ Cornell University, New York, USA}
 
 \ead{silvia.amerio@pd.infn.it}
 
@@ -135,11 +134,11 @@ fitting algorithm, the output data is a ....
 \ack
 The authors would like to thank the Fermilab staff and the FTK group at the 
 University of Chicago for their support. This work was supported by the
-U.S. Department of Energy and National Science Foundation and the Italian
+U.S. Department of Energy, the U.S. National Science Foundation and the Italian
 Istituto Nazionale di Fisica Nucleare. 
 
 
-%% CHEP2013 recommended style
+%% CHEP2013 recommended style for bibliography
 \bibliographystyle{iopart-num}
 
 \bibliography{gpu}
