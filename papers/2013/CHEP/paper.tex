@@ -5,7 +5,7 @@
       colorlinks=true,
       urlcolor=blue,       % \href{...}{...} external (URL)
       filecolor=green,     % \href{...} local file
-      linkcolor=red,       % \ref{...} and \pageref{...}
+      linkcolor=blue,       % \ref{...} and \pageref{...}
       pagebackref,
       pdfpagemode=UseNone,
       bookmarksopen=true]{hyperref}
@@ -92,19 +92,40 @@ high-level programming architectures based on C/C++ such as
 to the general user.  However, GPUs are not designed for low-latency
 response, which is a critical requirement in a trigger system.
 
+The ultimate goal of this study is to investigate the strengths and weaknesses
+of GPUs when applied in a low latency environment, with particular
+emphasis on the data transfer latency to/from the GPU and the
+algorithm latency for processing on the GPU in a manner similar to a
+typical HEP trigger application.
+
 We showed initial studies on GPU performance in low-latency
 environments ($\sim$100\,$\mu$s) in a previous paper~\cite{TIPP2011,
   NSS2012}.  In this paper we extend those studies measuring the
 timing performance of different GPU cards in different data I/O
 environments. The algorithm run on the GPU is a complete version of
 the fast track fitting algorithm of the Silicon Vertex Tracker (SVT)
-system at CDF~\cite{SVT1}.
+system at CDF~\cite{SVT1}. We also compare the performance of GPU
+cards from different manufacturers (AMD vs NVIDIA) and different
+computing environments (\textsc{cuda} and \textsc{opencl}) on the same
+card. 
 
-The goal of this study is to investigate the strengths and weaknesses
-of GPUs when applied in a low latency environment, with particular
-emphasis on the data transfer latency to/from the GPU and the
-algorithm latency for processing on the GPU in a manner similar to a
-typical HEP trigger application.
+
+One of the goals of the studies is to explore using a concrete
+algorithm what gains one can achieve with varying degrees of changes
+to the existing algorithm. Starting with a serial algorithm
+implemented on a CPU, we test an ``embarrassingly parallel'' algorithm
+on the Intel MIC environment. In this case each event is handled
+independently by a core on the accelerator, and the parallelization is
+achieved with only minor changes to the legacy code and is only
+possible in the Intel MIC environment. Next we consider an algorithm
+where we unroll three internal nested loops and run these in parallel
+on a GPU, using the \textsc{cuda} environment. This second approach is
+programmatically more complicated and less trivial to implement. In
+neither case have we re-thought the basic algorithms or the data
+structures used. To achieve optimal performance, these steps would
+have to be taken.  As one might expect, the improvement from the first
+approach is rather modest, and the second approach shows larger
+performance gains.
 
 
 \section{Experimental setup and data flow}
@@ -129,6 +150,51 @@ output data is composed of 32-bit words as well, representing the
 results of the fit; when the input data is not processed by the
 fitting algorithm, the output data is a .... 
 
+\section{SVT track fitting algorithm}
+
+\section{Results}
+\subsection{Data processing}
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
+
+  \caption{Algorithm-only comparison for timing as a function of the
+    number of track fits. We compare timing on CPUs (serial), Xeon Phi
+    (embarrassingly parallel), and GPUs (fully parallel.) Conclusion
+    is ...}
+  \label{fig:algo_only_timing}
+\end{figure}
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
+
+  \caption{Speed-ups for algorithm-only comparison for timing as a
+    function of the number of track fits. We compare timing on CPUs
+    (serial), Xeon Phi (partially parallel), and GPUs (fully
+    parallel.) We conclude ....}
+  \label{fig:algo_only_speedup}
+\end{figure}
+In Fig.~\ref{fig:algo_only_timing} we compare the algorithm time as a
+function of the number of fits performed, for the serial,
+embarrassingly parallel and parallel algorithms. We see that the
+embarrassingly parallel algorithm gives a modest increase with respect
+to the serial (CPU) algorithm. Switching to a fully parallel algorithm
+affords a much more significant speed
+improvement. Fig.~\ref{fig:algo_only_speedup} shows the speed-up for
+each... do we want to show this. Not a lot of new information.
+
+\subsection{Breakdown of computing time}
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
+  \caption{breakdown of computing time}
+  \label{fig:breakdown}
+\end{figure}
+In Fig.~\ref{fig:breakdown} we show the fractional time spent in
+various parts of the algorithm for the serial algorithm (on a CPU),
+the embarrassingly parallel algorithm (on Intel MIC) and the parallel
+algorithm (on NVidia GPUs), as a function of the number of
+fits. Interesting features are ...
 
 %% gives unnumbered ack in CHEP style
 \ack
