@@ -151,7 +151,7 @@ results of the fit; when the input data is not processed by the
 fitting algorithm, the output data is a .... 
 
 \section{SVT track fitting algorithm}
-
+Description of the SVT track fitting algorithm. 
 \section{Results}
 \subsection{Data processing}
 \begin{figure}[tbp]
@@ -195,6 +195,18 @@ various parts of the algorithm for the serial algorithm (on a CPU),
 the embarrassingly parallel algorithm (on Intel MIC) and the parallel
 algorithm (on NVidia GPUs), as a function of the number of
 fits. Interesting features are ...
+
+\subsection{Data transfer}
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
+  \caption{data transfer latencies}
+  \label{fig:xferlatency}
+\end{figure}
+In Fig.~\ref{fig:xferlatency} we show the latency for GPU direct v1,
+CUDA-aware MPI and P2P, as a function of the packet size. Does not
+include the algorithm time.
+
 
 %% gives unnumbered ack in CHEP style
 \ack
