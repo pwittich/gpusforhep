@@ -130,12 +130,18 @@ int main(int argc, char* argv[]) {
   gf_init(&tf);
   svtsim_fconread(tf);
 
-  struct evt_arrays *evt; int totEvts;
+  struct evt_arrays *evt = new evt_arrays;
+  int totEvts;
   struct fep_arrays *fep_dev = new fep_arrays;
   struct extra_data *edata_dev = new extra_data;
   struct fit_arrays *fit_dev = new fit_arrays;
 
-  gf_init_evt(&evt);
+  bool is_null=false;
+  if(evt==NULL) is_null=true;;
+
+  printf("Is evt_arrays ptr null? bool=%d",is_null);
+
+  //gf_init_evt(&evt);
 
   gettimeofday(&tBegin, NULL);
 
@@ -196,9 +202,9 @@ int main(int argc, char* argv[]) {
     dev_i = 0;
     plat_i = 1;	
     
-    //this is for CPU...
-    //dev_i = 0;
-    //plat_i = 0;	
+    //this is for AMD card...
+    dev_i = 0;
+    plat_i = 0;	
 
     //============================================================================
     //============================================================================
@@ -256,7 +262,8 @@ int main(int argc, char* argv[]) {
     std::string buildOptions;
     { // create preprocessor defines for the kernel
       char buf[256]; 
-      sprintf(buf,"-cl-mad-enable -D DATAWORD=%s ", dataType.getType().c_str());
+      //sprintf(buf,"-cl-mad-enable -D DATAWORD=%s ", dataType.getType().c_str());
+      sprintf(buf,"-cl-mad-enable -I./");
       buildOptions = buf;
       std::cout << __FANCY__ << "buildOptions = " << buildOptions << std::endl;
     }
@@ -287,9 +294,39 @@ int main(int argc, char* argv[]) {
     std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_set << std::endl;
 
     //====================================
+    //build program source
+    std::string kernel_fit_file = "gf_fit.cl";
+    std::ifstream fit_file((kernel_fit_file).c_str());
+    CL_HELPERFUNCS::checkErr(fit_file.is_open() ? CL_SUCCESS:-1, (kernel_fit_file).c_str());
+    
+    
+    printf("And now build the other piece/n");
+
+    //TODO-RAR add build options
+    std::string fit_prog(std::istreambuf_iterator<char>(fit_file),
+			 (std::istreambuf_iterator<char>()));
+    std::string fit_buildOptions;
+    { // create preprocessor defines for the kernel
+      char fit_buf[256]; 
+      //sprintf(fit_buf,"-cl-mad-enable -D DATAWORD=%s ", dataType.getType().c_str());
+      sprintf(fit_buf,"-cl-mad-enable -I./");
+      fit_buildOptions = fit_buf;
+      std::cout << __FANCY__ << "fit_buildOptions = " << fit_buildOptions << std::endl;
+    }
+    
+    cl::Program::Sources fit_source(1,std::make_pair(fit_prog.c_str(), fit_prog.length()));
+    
+    cl::Program fit_program(context, fit_source);
+    
+    err = fit_program.build(*(deviceList[plat_i]),buildOptions.c_str());
+	      
+    CL_HELPERFUNCS::displayBuildLog(fit_program, device);
+    CL_HELPERFUNCS::checkErr(err, "Build::Build()");
+
+    //====================================
     //set kernel entry point
     std::string kernelFunc_kFit = "kFit";
-    cl::Kernel kernel_kFit(program, kernelFunc_kFit.c_str(), &err);
+    cl::Kernel kernel_kFit(fit_program, kernelFunc_kFit.c_str(), &err);
     CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
     std::cout << __FANCY__ << "Entry point set to " << kernelFunc_kFit << std::endl;
     /*
@@ -319,40 +356,51 @@ int main(int argc, char* argv[]) {
     std::cout << "device type " << CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) << std::endl;
 
 
-    cl::Buffer evt_CL(
-		    context,
-		    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
-		    0:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		    sizeof(evt_arrays),
-		    evt,
-		    &err);
-    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
+    printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
+	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
+
     
+    cl::Buffer evt_CL(
+		      context,
+		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+		      0:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+		      sizeof(evt_arrays),
+		      //evt,
+		      NULL,
+		      &err);
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
+
     cl::Buffer fit_dev_CL(
 			  context,
 			  CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			  CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			  sizeof(fit_arrays),
-			  fit_dev,
+			  //fit_dev,
+			  NULL,
 			  &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+    
+    printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
+	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
 
     cl::Buffer fep_dev_CL(
-		     context,
-		     CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
-		     CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
-		     sizeof(fep_arrays),
-		     fep_dev,
-		     &err);
+			  context,
+			  CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			  CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+			  sizeof(fep_arrays),
+			  //fep_dev,
+			  NULL,
+			  &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
     
-    
+        
     cl::Buffer edata_dev_CL(
 			    context,
 			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			    sizeof(extra_data),
-			    edata_dev,
+			    //edata_dev,
+			    NULL,
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
     
@@ -425,6 +473,8 @@ int main(int argc, char* argv[]) {
 
     event.wait();
 
+
+    printf("Error was ... %d\n",err);
     err = queue.finish();
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
 

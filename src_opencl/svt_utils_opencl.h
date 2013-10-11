@@ -65,9 +65,9 @@ struct extra_data {
 
 struct fit_arrays {
 
-  unsigned long fit_fit[NEVTS][6][MAXROAD][MAXCOMB][MAXCOMB5H];
-  int fit_err[NEVTS][MAXROAD][MAXCOMB][MAXCOMB5H];
   int fit_err_sum[NEVTS];
+  int fit_fit[NEVTS][6][MAXROAD][MAXCOMB][MAXCOMB5H];
+  int fit_err[NEVTS][MAXROAD][MAXCOMB][MAXCOMB5H];
 
   //int dummy;
 
