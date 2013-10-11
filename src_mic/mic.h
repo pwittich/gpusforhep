@@ -25,6 +25,23 @@ namespace mic {
 inline void empty() {
 }
 
+
+inline void sort(int* &a, int num) {
+
+  int temp;
+
+  for(int i=0; i<num; i++) {
+    for(int j=i+1; j<num; j++) {
+      if(a[i]>a[j]) {
+        temp=a[i];
+        a[i]=a[j];
+        a[j]=temp;
+      }
+    }
+  }
+}
+
+
 inline void destroy(evt_arrays* evt_dev, fep_arrays* fep_dev, fit_arrays* fit_dev, fout_arrays* fout_dev)
 {
   free(evt_dev);
@@ -282,7 +299,7 @@ inline void gf_unpack(unsigned int const* data_in, int n_words, evt_arrays* evt_
 
 // without thrust...
 
-void k_word_decode(int idx, unsigned int *words, int *ids, int *out1, int *out2, int *out3) {
+void k_word_decode(int idx, unsigned int *words, int *ids, int *out1, int *out2, int *out3, int* &eew, int& ieew) {
 
   /* 
     parallel word_decode kernel.
@@ -297,7 +314,7 @@ void k_word_decode(int idx, unsigned int *words, int *ids, int *out1, int *out2,
   */
 
   int word = words[idx];
-  int ee, ep, lyr;
+  int ee, ep, lyr, it;
 
   lyr = -999; /* Any invalid numbers != 0-7 */
 
@@ -324,6 +341,9 @@ void k_word_decode(int idx, unsigned int *words, int *ids, int *out1, int *out2,
 
   if (ee && ep) { /* End of Event word */
     out1[idx] = word; // ee_word
+    // atomicAdd (on mic) returns the *new* value
+    it = atomicAdd(&ieew, 1);
+    eew[it]=idx;
     lyr = EE_LYR;
   } else if (ee) { /* only EE bit ON is error condition */
     lyr = EE_LYR; /* We have to check */
@@ -347,21 +367,15 @@ void k_word_decode(int idx, unsigned int *words, int *ids, int *out1, int *out2,
   ids[idx] = lyr;
 }
 
-inline void gf_unpack_wot(int n_words, int *ids, int *out1, int *out2, int *out3, struct evt_arrays *evta, int& d_tEvts ) {
+inline void gf_unpack_wot(int start, int stop, int *ids, int *out1, int *out2, int *out3, struct evt_arrays *evta, int evt) {
 
-
-  int tEvts = 0;
-
-  for (int ie = 0; ie < NEVTS; ie++) {
-    evta->evt_zid[ie][evta->evt_nroads[ie]] = -1; // because we set it to 0 for GPU version
-  }
+  evta->evt_zid[evt][evta->evt_nroads[evt]] = -1; // because we set it to 0 for GPU version
 
 
   int id_last = -1;
-  int evt = EVT;
   int id;
 
-  for (int i = 0; i < n_words; i++) {
+  for (int i = start; i <= stop; i++) {
         
     id = ids[i];
 
@@ -397,7 +411,6 @@ inline void gf_unpack_wot(int n_words, int *ids, int *out1, int *out2, int *out3
 
       // Error Checking
       if (nhits == MAX_HIT) evta->evt_err[evt][nroads] |= (1 << OFLOW_HIT_BIT);
-      if (id < id_last) evta->evt_err[evt][nroads] |= (1 << OUTORDER_BIT);
     } else if (id == XFT_LYR && gf_xft == 0) {
       // we ignore - stp
     } else if (id == XFT_LYR && gf_xft == 1) {
@@ -413,7 +426,6 @@ inline void gf_unpack_wot(int n_words, int *ids, int *out1, int *out2, int *out3
 
       // Error Checking
       if (nhits == MAX_HIT) evta->evt_err[evt][nroads] |= (1 << OFLOW_HIT_BIT);
-      if (id < id_last) evta->evt_err[evt][nroads] |= (1 << OUTORDER_BIT);
     } else if (id == EP_LYR) {
       int sector = out1[i];
       int amroad = out2[i];
@@ -426,33 +438,17 @@ inline void gf_unpack_wot(int n_words, int *ids, int *out1, int *out2, int *out3
       nroads = ++evta->evt_nroads[evt];
 
       if (nroads > MAXROAD) {
-        printf("The limit on the number of roads fitted by the TF is %d\n",MAXROAD);
-        printf("You reached that limit evt->nroads = %d\n",nroads);
+        printf("You reached that limit (%d) evt->nroads = %d (evt: %d)\n",MAXROAD, nroads, evt);
       }
-
-      for (id = 0; id <= XFT_LYR; id++)
-        evta->evt_nhits[evt][nroads][id] = 0;
-
-      evta->evt_err[evt][nroads] = 0;
-      evta->evt_zid[evt][nroads] = -1;
-
-      id = -1; id_last = -1;
     } else if (id == EE_LYR) {
-
       evta->evt_ee_word[evt] = out1[i];
-      tEvts++;
-      evt++;
-
-      id = -1; id_last = -1;
     } else {
       printf("Error INV_DATA_BIT: layer = %u\n", id);
       evta->evt_err[evt][nroads] |= (1 << INV_DATA_BIT);
     }
-    id_last = id;
 
   } //end loop on input words
 
-  d_tEvts = tEvts;
 
 }
 

@@ -30,7 +30,7 @@ typedef struct tf_arrays      *tf_arrays_t;
 
 
 //GF
-#define NEVTS 3000
+#define NEVTS 100
 #define NROADS 32
 #define EVT 0 //all words from the input file are considered belonging to the same event
 

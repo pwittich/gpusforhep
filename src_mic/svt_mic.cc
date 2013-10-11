@@ -5,6 +5,7 @@
 #include <math.h>
 #include "mic.h"
 
+
 // calculate mean and stdev on an array of count floats
 void get_mean(float* times_array, int count, float *mean, float *stdev) {
 
@@ -27,7 +28,7 @@ void get_mean(float* times_array, int count, float *mean, float *stdev) {
 // returns the number of output words
 int svt_mic(extra_data edata, unsigned int *data_in, int n_words, unsigned int *data_rec, int* tev, float timer[3])
 {
-  int totEvts = 0;
+  int totEvts = NEVTS;
   int ie = 0;
   int ow = 0;
   evt_arrays* evt_dev = 0;
@@ -39,7 +40,6 @@ int svt_mic(extra_data edata, unsigned int *data_in, int n_words, unsigned int *
 
 #pragma offload target(mic) \
   in(data_in:length(n_words)) in(edata) \
-  inout(totEvts)  \
   nocopy(evt_dev) nocopy(fep_dev) nocopy(fit_dev) nocopy(fout_dev) \
   out(data_rec:length(n_words)) out(ow) out(timer:length(3))
 {
@@ -55,13 +55,23 @@ int svt_mic(extra_data edata, unsigned int *data_in, int n_words, unsigned int *
   int *out2 = (int *)malloc(sizeW);
   int *out3 = (int *)malloc(sizeW);
 
+  int iee= 0;
+  int *ee = (int *)malloc((NEVTS+1) * sizeof(int));
+  ee[0]=-1;
+
   #pragma omp parallel for
   for (int idx=0; idx < n_words; idx++) {
-    mic::k_word_decode(idx, data_in, ids, out1, out2, out3);
+    mic::k_word_decode(idx, data_in, ids, out1, out2, out3, ee, iee);
   }
   mic::init_evt(evt_dev, fep_dev);
-  mic::gf_unpack_wot(n_words, ids, out1, out2, out3, evt_dev, totEvts);
+  mic::sort(ee, NEVTS+1);
 
+  #pragma omp parallel for
+  for (int idxe=0; idxe < NEVTS; idxe++) {
+    mic::gf_unpack_wot(ee[idxe]+1, ee[idxe+1], ids, out1, out2, out3, evt_dev, idxe);
+  }
+
+  free(ee);
   free(ids);
   free(out1);
   free(out2);

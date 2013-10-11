@@ -1,10 +1,10 @@
 
-INTELBASE=/opt/intel/bin
+INTELBASE=/software/intel_parallel_studio_xe_2013/composer_xe_2013.3.163/bin/intel64
 
 ICC=$(INTELBASE)/icc
 ICPC=$(INTELBASE)/icpc
 
-INCTHRUST=/usr/local/cuda-5.0/include
+INCTHRUST=/home/gianelle/thrust-1.7
 
 ICFLAGS= -openmp -O3 -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP -DNDEBUG
 
