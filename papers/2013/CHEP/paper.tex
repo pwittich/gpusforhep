@@ -1,5 +1,6 @@
 \documentclass[letterpaper]{jpconf}
 \usepackage{graphicx}
+\usepackage{subfigure}
 \usepackage{iopams}
 \usepackage[pdftex,
       colorlinks=true,
@@ -25,6 +26,7 @@
   D.~Lucchesi$^1$,
   S.~Poprocki$^5$, 
   R.~Rivera$^3$, 
+  L.~Tosoratto$^4$,
   P.~Vicini$^4$
   and 
   P.~Wittich$^5$,
@@ -38,32 +40,27 @@
 \ead{silvia.amerio@pd.infn.it}
 
 \begin{abstract}
-  %%% NSS PAPER abstract
-  One of the most important issues that particle physics experiments
-  at hadron colliders have to solve is real-time selection of the most
-  interesting events. Typical collision frequencies do not allow all
-  events to be written to tape for offline analysis, and in most
-  cases, only a small fraction can be saved. The most commonly used
-  strategy is based on two or three selection levels, with the low
-  level ones usually exploiting dedicated hardware to decide within a
-  few to ten microseconds if the event should be kept or not. This
-  strict time requirement has made the usage of commercial devices
-  inadequate, but recent improvements to Graphics Processing Units
-  (GPUs) have substantially changed the conditions. Thanks to their
-  highly parallel, multi-threaded, multicore architecture with
-  remarkable computational power and high memory bandwidth, these
-  commercial devices may be used in scientific applications, among
-  which the event selection system (trigger) in particular may
-  benefit, even at low levels. This paper describes the results of an
-  R\&D project to study the performance of GPU technology for low
-  latency applications, such as HEP fast tracking trigger algorithms.
-  On two different setups, we measure the latency to transfer data
-  to/from the GPU, exploring the timing of different I/O technologies
-  on different GPU models. We then describe the implementation and the
-  performance of a track fitting algorithm which mimics the CDF
-  Silicon Vertex Tracker.  These studies provide performance
-  benchmarks to investigate the potential and limitations of GPUs for
-  future real-time applications in HEP experiments.
+One of the most important issues facing particle physics experiments at hadron 
+colliders is real-time selection of interesting events for offline storage. 
+Collision frequencies do not allow all events to be written to tape for 
+offline analysis, and in most cases, only a small fraction can be saved. 
+Typical trigger systems use commercial computers in the final stage of 
+processing. Much of the effort is focused on understanding the latency for 
+trigger systems. In this paper we describe updates to a previous study of 
+latencies in GPU for potential trigger applications, where we measured the 
+latency to transfer data to/from the GPU, exploring the timing of different 
+I/O technologies on different GPU models.  Those studies, where a simplified 
+track fitting algorithm was parallelized and run on a GPU, show that latencies 
+of few tens of microseconds can be achieved to transfer and process packets of 
+4 kB of data, combining the modern Infiniband data transfer technology with 
+direct access to GPU memory allowed by NVIDIA GPUDirect utilities.  We now 
+have expanded our latency studies to include other multi-core systems 
+(Intel Xeon Phi in addition to NVIDIA GPUs). We also discuss the implementation 
+of a scaled-up version of the algorithm 
+used at CDF for online track reconstruction - the SVT algorithm - as a 
+realistic test-case for low-latency trigger systems using new computing 
+architectures for LHC experiment.
+
 \end{abstract}
 
 \section{Introduction}
@@ -89,9 +86,7 @@ their impressive computing power (the latest NVIDIA~\cite{bib_nvidia}
 GPU architecture, Kepler, exceeds Teraflop computing power); moreover,
 high-level programming architectures based on C/C++ such as
 \textsc{cuda} and \textsc{opencl} make these devices more accessible
-to the general user.  However, GPUs are not designed for low-latency
-response, which is a critical requirement in a trigger system.
-
+to the general user.  
 The ultimate goal of this study is to investigate the strengths and weaknesses
 of GPUs when applied in a low latency environment, with particular
 emphasis on the data transfer latency to/from the GPU and the
@@ -108,8 +103,6 @@ system at CDF~\cite{SVT1}. We also compare the performance of GPU
 cards from different manufacturers (AMD vs NVIDIA) and different
 computing environments (\textsc{cuda} and \textsc{opencl}) on the same
 card. 
-
-
 One of the goals of the studies is to explore using a concrete
 algorithm what gains one can achieve with varying degrees of changes
 to the existing algorithm. Starting with a serial algorithm
@@ -127,15 +120,70 @@ have to be taken.  As one might expect, the improvement from the first
 approach is rather modest, and the second approach shows larger
 performance gains.
 
+\section{SVT track fitting algorithm}
+The Silicon Vertex Trigger (SVT)~\cite{bib_SVT1}~\cite{bib_SVT2} was a 
+track reconstruction processor used at 
+trigger level in the CDF experiment at Tevatron accelerator. It reconstructs 
+tracks in about 20 $\mu s$ in time in two steps: for each event 
+first low resolution tracks (\textit{roads}) are found among the hits left 
+in the tracking detector; then track fitting is performed on 
+all possible combinations of hits inside a road. 
+This algorithm uses a linearized approximation to track-fitting as 
+implemented in hardware (described in greater detail in~\cite{bib_SVT3}). 
+With the SVT approach, the determination of the track parameters 
+($p_i$) is reduced to a simple scalar product:
+\[
+p_i = \vec{f_i} \cdot \vec{x_i} + q_i,
+\]
+where $\vec{x_i}$ are input silicon hits, and $\vec{f_i}$ and $q_i$ are 
+pre-defined constant sets. For each set of hits, the algorithm
+computes the impact parameter $d_0$, the azimuthal angle $\phi$, 
+the transverse momentum $p_\mathrm{T}$ , and the $\chi^2$ of the
+fitted track by using simple operations such as memory lookup and 
+integer addition and multiplication. 
 
 \section{Experimental setup and data flow}
-The studies are performed on two different experimental setups,
-equipped with different data transfer links and GPU cards.  In both
-setups two PCs are used, one acting as a transmitter (TX) and the
+
+The many-core devices used in this study are listed in Table~\ref{t_hwspecs}.
+
+\begin{table}[!t]
+  \centering
+  \begin{tabular}{|l|c|c|c|c|}
+    \hline
+    Model & Tesla M2050 & Tesla K20m & GeForce GTX  Titan & MIC 5110P \\
+    \hline
+    \hline
+    Performance (SP, GFlops) & 1030 & 3520 & 4500 & 2022 \\
+    Memory bandwidth  (GB/s) & 148 & 208 & 288  & 320\\   
+    Memory size (GB) & 3 & 5 & 6 & 8 \\
+    Number of cores & 448 & 2496 & 2688 & 240 \\
+    Clock speed (GHz) & 1.15 & 0.706 & 0.837 & 1.053 \\
+    \hline
+  \end{tabular}
+  \caption{Capabilities of the many-core devices used in this study, according to the manufacturer's specifications.}
+  \label{tab_hwspecs}
+\end{table}
+
+To measure the data transfer latency a setup made of two PCs is used, 
+one acting as a transmitter (TX) and the
 other as a receiver (RX).  Data are transferred from TX to RX,
-processed on the GPU, and sent back to the receiver (see
-Fig.~\ref{fig_data_flow}).  The latency for a complete loop is
-measured on the transmitter using the time stamp counter register.
+processed on the GPU and sent back to the receiver (see
+Fig.~\ref{fig_data_flow}).  
+The GPU on the RX is a Tesla M2075, similar to the M2050 used for the data processing tests. The latency for a complete loop is
+measured on the transmitter using standard C libraries.
+
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=3.5in]{figures/SetUp-general}
+\caption{Data flow. Data is sent from the transmitter PC to the
+  receiver PC, where it is processed by the GPU before being returned
+  to the transmitter PC. The transmitter plays the role of the
+  detector as the source of the data and as an upstream trigger
+  processor as the data's ultimate sink. The receiver PC plays the
+  role of a component in the trigger system. }
+\label{fig_data_flow}
+\end{figure}
 
 In this setup, the transmitter can represent the detector, as
 the source of the data, or an upstream trigger processor, as
@@ -143,37 +191,51 @@ the ultimate sink of the data, while the the receiver is the
 trigger system: the time to transfer data to the receiver is thus a
 rough estimate of the latency to transfer the data from the detector
 front-end to the trigger system.
- 
-The input data is a set of 32-bit words, each representing a set of
-hits from the detector. When the track fitting algorithm is run, the
-output data is composed of 32-bit words as well, representing the
-results of the fit; when the input data is not processed by the
-fitting algorithm, the output data is a .... 
 
-\section{SVT track fitting algorithm}
-Description of the SVT track fitting algorithm. 
 \section{Results}
+
 \subsection{Data processing}
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
 
-  \caption{Algorithm-only comparison for timing as a function of the
-    number of track fits. We compare timing on CPUs (serial), Xeon Phi
-    (embarrassingly parallel), and GPUs (fully parallel.) Conclusion
-    is ...}
-  \label{fig:algo_only_timing}
-\end{figure}
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
 
-  \caption{Speed-ups for algorithm-only comparison for timing as a
-    function of the number of track fits. We compare timing on CPUs
-    (serial), Xeon Phi (partially parallel), and GPUs (fully
-    parallel.) We conclude ....}
-  \label{fig:algo_only_speedup}
-\end{figure}
+\begin{figure*}[!t]
+\centering
+\subfigure[]
+{\label{fig:algo_only_timing}
+\includegraphics[width=3in]{figures/TimeComp_MIC.pdf}}
+\hspace{1mm}
+\subfigure[]
+{\label{fig_breakdown_MIC}
+\includegraphics[width=3in]{figures/TimeCompZoom_MIC.pdf}}
+\caption{breakdown}
+\end{figure*}
+
+
+% \begin{figure}[tbp]
+%   \centering
+%   \includegraphics[width=0.5\linewidth]{figures/TimeComp_MIC.pdf}
+%    \caption{Algorithm-only comparison for timing as a function of the
+%     number of track fits. We compare timing on CPUs (serial), Xeon Phi
+%     (embarrassingly parallel), and GPUs (fully parallel.) }
+%   \label{fig:algo_only_timing}
+% \end{figure}
+%
+% \begin{figure}[tbp]
+%   \centering
+%   \includegraphics[width=0.5\linewidth]{figures/TimeCompZoom_MIC.png} 
+%   \caption{ZOOM}
+%   \label{fig:algo_only_timing_zoom}
+% \end{figure}
+%
+ \begin{figure}[tbp]
+   \centering
+   \includegraphics[width=0.5\linewidth]{figures/Speedup_MIC.pdf}
+   \caption{Algorithm-only comparison for timing as a function of the
+     number of track fits. We compare timing on CPUs (serial), Xeon Phi
+     (embarrassingly parallel), and GPUs (fully parallel.) }
+   \label{fig:algo_only_speedup}
+ \end{figure}
+
+
 In Fig.~\ref{fig:algo_only_timing} we compare the algorithm time as a
 function of the number of fits performed, for the serial,
 embarrassingly parallel and parallel algorithms. We see that the
@@ -184,12 +246,24 @@ improvement. Fig.~\ref{fig:algo_only_speedup} shows the speed-up for
 each... do we want to show this. Not a lot of new information.
 
 \subsection{Breakdown of computing time}
-\begin{figure}[tbp]
-  \centering
-  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
-  \caption{breakdown of computing time}
-  \label{fig:breakdown}
-\end{figure}
+
+\begin{figure*}[!t]
+\centering
+\subfigure[]
+{\label{fig_breakdown_CPU}
+\includegraphics[width=1.8in]{figures/Cpui7_perc.pdf}}
+\hspace{1mm}
+\subfigure[]
+{\label{fig_breakdown_MIC}
+\includegraphics[width=1.8in]{figures/Mic5_perc_nk.pdf}}
+\subfigure[]
+{\label{fig_breakdown_GPU}
+\includegraphics[width=1.8in]{figures/titan_perc.pdf}}
+\caption{breakdown}
+\end{figure*}
+
+
+
 In Fig.~\ref{fig:breakdown} we show the fractional time spent in
 various parts of the algorithm for the serial algorithm (on a CPU),
 the embarrassingly parallel algorithm (on Intel MIC) and the parallel
@@ -197,12 +271,40 @@ algorithm (on NVidia GPUs), as a function of the number of
 fits. Interesting features are ...
 
 \subsection{Data transfer}
+
+\begin{figure*}[!t]
+\centering
+\subfigure[]
+{\label{fig_standardDT}
+\includegraphics[width=2in]{figures/noGPUDirect}}
+\hspace{1mm}
+\subfigure[]
+{\label{fig_GPUDirectV1}
+\includegraphics[width=2in]{figures/GPUDirect}}
+\subfigure[]
+{\label{fig_GPUDirectV2}
+\includegraphics[width=2in]{figures/GPUDirect-APE}}
+\caption{Standard data transfer (a), via GPUDirect (b) and via
+  GPUDirect with P2P support (c). In (a), two buffers are required in
+  the main memory. In GPUDirect (b), one of the main memory buffers is
+  eliminated. In GPUDirect with P2P support, data is sent directly
+  from the APEnet+ transceiver to the GPU memory.}
+\end{figure*}
+
 \begin{figure}[tbp]
   \centering
-  \includegraphics[width=0.9\linewidth]{../../2012/figures/DT_MC_SLINK_IB_APE_low}
+  \includegraphics[width=0.7\linewidth]{figures/datatransfer.pdf}
   \caption{data transfer latencies}
   \label{fig:xferlatency}
 \end{figure}
+
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.7\linewidth]{figures/cudaware.pdf}
+  \caption{data transfer latencies}
+  \label{fig:transferOnly}
+\end{figure}
+
 In Fig.~\ref{fig:xferlatency} we show the latency for GPU direct v1,
 CUDA-aware MPI and P2P, as a function of the packet size. Does not
 include the algorithm time.
@@ -221,6 +323,19 @@ Istituto Nazionale di Fisica Nucleare.
 
 \bibliography{gpu}
 
+\begin{thebibliography}{99}
+\bibitem{bib_nvidia} \url{http://www.nvidia.com}
+\bibitem{bib_cuda}\url{http://www.nvidia.com/object/cuda_home_new.html}
+\bibitem{bib_OpenCL}\url{http://www.khronos.org/opencl/}
+%\bibitem{bib_GPU_TIPP2011} W.~Ketchum \textit{et al.}, \emph{Performance Study of GPUs in Real-Time Trigger Applications for HEP Experiments},  Physics Procedia, Volume 37, 2012, 1965-1972.
+%\bibitem{bib_Apenet} R.~Ammendola \textit{et al.},% \emph{APEnet+: a 3D toroidal network enabling Petaflops scale Lattice QCD simulations on commodity clusters}  PoS(Lattice 2010)022.
+%\bibitem{bib_GPUDirect} \url{https://developer.nvidia.com/gpudirect}
+%\bibitem{bib_SVT1} B.~Ashmanskas \emph{et al.}, \emph{The CDF Silicon    Vertex Trigger}, Nucl.~Instrum.~Meth. A \textbf{518} (2004) 532–536. \href{http://dx.doi.org/10.1016/j.nima.2003.11.078}{doi:10.1016/j.nima.2003.11.078}
+%\bibitem{bib_SVT2} J.~A.~Adelman \emph{et al.}, \emph{The Silicon    Vertex Trigger upgrade at CDF}, Nucl.~Instrum.~Meth. A \textbf{572} (2007)  361–364. 
+%\href{http://dx.doi.org/10.1016/j.nima.2006.10.383}{doi:10.1016/j.nima.2006.10.383}
+%\bibitem{bib_SVT3} S. Amerio \emph{et al.}, \emph{The GigaFitter: Performance at CDF and perspectives for future applications}, J.Phys.Conf.Ser. 219 (2010) 022001.
+
+\end{thebibliography}
  
 \end{document}
 
