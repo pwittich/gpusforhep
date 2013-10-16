@@ -464,23 +464,36 @@ int main(int argc, char* argv[]) {
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
 
-    err = kernel_init.setArg(0, evt_CL);
-    err = kernel_init.setArg(1, fout_dev_CL);
+    err = kernel_init.setArg(1, evt_CL);
+    err = kernel_init.setArg(0, fout_dev_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_init,
 				     cl::NullRange,
-				     cl::NDRange(NEVTS*MAXROAD),
+				     cl::NDRange(NEVTS*(NSVX_PLANE+1),MAXROAD),
 				     cl::NDRange(NSVX_PLANE+1,1),
 				     NULL,
 				     &event);
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
 
     event.wait();
+    /*
+    err = queue.enqueueReadBuffer(
+				  fout_dev_CL,
+				  CL_TRUE,
+				  0,
+				  sizeof(fout_arrays),
+				  fout_dev);
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
 
+    err = queue.finish();
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
 
-
+    for(int ie=0; ie<NEVTS; ie++){
+      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie]);
+    }
+    */
     gettimeofday(&ptBegin, NULL);
     gf_fep_unpack_evt(evt, k, data_send);
     printf("Total events %d\n\n",evt->totEvts);
@@ -654,7 +667,7 @@ int main(int argc, char* argv[]) {
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
     for(int ie=0; ie<NEVTS; ie++){
-      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie]);
+      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie],fout_dev->fout_parity[ie]);
       /*
       for(int ir=0; ir<MAXROAD; ir++){
 	if(fep_dev->fep_ncmb[ie][ir]!=0)
@@ -691,5 +704,12 @@ int main(int argc, char* argv[]) {
 
   fclose(OUTCHECK);
   
+  delete evt;
+  delete fep_dev;
+  delete edata_dev;
+  delete fit_dev;
+  delete fout_dev;
+
+
   return 0;
 }

@@ -12,7 +12,7 @@ __kernel void init_arrays_GPU (global struct fout_arrays* fout_dev, global struc
   int ie, ir, ip;
 
   ie = get_group_id(0); // events index
-  ie = get_group_id(1); // events index
+  ir = get_group_id(1); // roads index
   ip = get_local_id(0); // NSVX_PLANE+1 index
 
   // initialize evt arrays....
