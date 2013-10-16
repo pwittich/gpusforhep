@@ -41,28 +41,21 @@
 \ead{silvia.amerio@pd.infn.it}
 
 \begin{abstract}
-  One of the most important issues facing particle physics experiments
-  at hadron colliders is real-time selection of interesting events for
-  offline storage.  Collision frequencies do not allow all events to
-  be written to tape for offline analysis, and in most cases, only a
-  small fraction can be saved.  Typical trigger systems use commercial
-  computers in the final stage of processing. Much of the effort is
-  focused on understanding the latency for trigger systems. In this
-  paper we describe updates to a previous study of latencies in GPU
-  for potential trigger applications, where we measured the latency to
-  transfer data to/from the GPU, exploring the timing of different I/O
-  technologies on different GPU models.  Those studies, where a
-  simplified track fitting algorithm was parallelized and run on a
-  GPU, show that latencies of few tens of microseconds can be achieved
-  to transfer and process packets of 4 kB of data, combining the
-  modern Infiniband data transfer technology with direct access to GPU
-  memory allowed by NVIDIA GPUDirect utilities.  We now have expanded
-  our latency studies to include other multi-core systems (Intel Xeon
-  Phi in addition to NVIDIA GPUs). We also discuss the implementation
-  of a scaled-up version of the algorithm used at CDF for online track
-  reconstruction - the SVT algorithm - as a realistic test-case for
-  low-latency trigger systems using new computing architectures for
-  LHC experiment.
+  In this paper we describe updates to a previous study of latencies
+  in GPU for potential trigger applications, where we measured the
+  latency to transfer data to/from the GPU, exploring the timing of
+  different I/O technologies on different GPU models.  Those studies,
+  where a simplified track fitting algorithm was parallelized and run
+  on a GPU, show that latencies of few tens of microseconds can be
+  achieved to transfer and process packets of 4 kB of data, combining
+  the modern Infiniband data transfer technology with direct access to
+  GPU memory allowed by NVIDIA GPUDirect utilities.  We now have
+  expanded our latency studies to include other multi-core systems
+  (Intel Xeon Phi in addition to NVIDIA GPUs). We also discuss the
+  implementation of a scaled-up version of the algorithm used at CDF
+  for online track reconstruction - the SVT algorithm - as a realistic
+  test-case for low-latency trigger systems using new computing
+  architectures for LHC experiment.
 
 \end{abstract}
 
