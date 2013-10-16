@@ -41,26 +41,28 @@
 \ead{silvia.amerio@pd.infn.it}
 
 \begin{abstract}
-One of the most important issues facing particle physics experiments at hadron 
-colliders is real-time selection of interesting events for offline storage. 
-Collision frequencies do not allow all events to be written to tape for 
-offline analysis, and in most cases, only a small fraction can be saved. 
-Typical trigger systems use commercial computers in the final stage of 
-processing. Much of the effort is focused on understanding the latency for 
-trigger systems. In this paper we describe updates to a previous study of 
-latencies in GPU for potential trigger applications, where we measured the 
-latency to transfer data to/from the GPU, exploring the timing of different 
-I/O technologies on different GPU models.  Those studies, where a simplified 
-track fitting algorithm was parallelized and run on a GPU, show that latencies 
-of few tens of microseconds can be achieved to transfer and process packets of 
-4 kB of data, combining the modern Infiniband data transfer technology with 
-direct access to GPU memory allowed by NVIDIA GPUDirect utilities.  We now 
-have expanded our latency studies to include other multi-core systems 
-(Intel Xeon Phi in addition to NVIDIA GPUs). We also discuss the implementation 
-of a scaled-up version of the algorithm 
-used at CDF for online track reconstruction - the SVT algorithm - as a 
-realistic test-case for low-latency trigger systems using new computing 
-architectures for LHC experiment.
+  One of the most important issues facing particle physics experiments
+  at hadron colliders is real-time selection of interesting events for
+  offline storage.  Collision frequencies do not allow all events to
+  be written to tape for offline analysis, and in most cases, only a
+  small fraction can be saved.  Typical trigger systems use commercial
+  computers in the final stage of processing. Much of the effort is
+  focused on understanding the latency for trigger systems. In this
+  paper we describe updates to a previous study of latencies in GPU
+  for potential trigger applications, where we measured the latency to
+  transfer data to/from the GPU, exploring the timing of different I/O
+  technologies on different GPU models.  Those studies, where a
+  simplified track fitting algorithm was parallelized and run on a
+  GPU, show that latencies of few tens of microseconds can be achieved
+  to transfer and process packets of 4 kB of data, combining the
+  modern Infiniband data transfer technology with direct access to GPU
+  memory allowed by NVIDIA GPUDirect utilities.  We now have expanded
+  our latency studies to include other multi-core systems (Intel Xeon
+  Phi in addition to NVIDIA GPUs). We also discuss the implementation
+  of a scaled-up version of the algorithm used at CDF for online track
+  reconstruction - the SVT algorithm - as a realistic test-case for
+  low-latency trigger systems using new computing architectures for
+  LHC experiment.
 
 \end{abstract}
 
@@ -95,11 +97,11 @@ algorithm latency for processing on the GPU in a manner similar to a
 typical HEP trigger application.
 
 We showed initial studies on GPU performance in low-latency
-environments ($\sim$100\,$\mu$s) in a previous paper~\cite{bib_tipp2011,bib_nss2012}.  In this paper we extend those studies measuring the
+environments ($\sim$100\,$\mu$s) in a previous paper~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies measuring the
 timing performance of different GPU cards in different data I/O
 environments. The algorithm run on the GPU is a complete version of
 the fast track fitting algorithm of the Silicon Vertex Tracker (SVT)
-system at CDF~\cite{bib_SVT1}. 
+system at CDF~\cite{SVT1}. 
 %We also compare the performance of GPU
 %cards from different manufacturers (AMD vs NVIDIA) and different
 %computing environments (\textsc{cuda} and \textsc{opencl}) on the same
@@ -122,7 +124,7 @@ approach is rather modest, and the second approach shows larger
 performance gains.
 
 \section{SVT track fitting algorithm}
-The Silicon Vertex Trigger (SVT)~\cite{bib_SVT1}~\cite{bib_SVT2} is a 
+The Silicon Vertex Trigger (SVT)~\cite{SVT1,SVT2} is a 
 track reconstruction processor used at 
 trigger level in the CDF experiment at Tevatron accelerator. It reconstructs 
 tracks in about 20 $\mu s$ in time in two steps: for each event 
@@ -130,7 +132,7 @@ first low resolution tracks (\textit{roads}) are found among the hits left
 in the tracking detector by charged particles; then track fitting is 
 performed on all possible combinations of hits inside a road. 
 This algorithm uses a linearized approximation to track-fitting as 
-implemented in hardware (described in greater detail in~\cite{bib_SVT3}). 
+implemented in hardware (described in greater detail in~\cite{SVT3}). 
 With the SVT approach, the determination of the track parameters 
 ($p_i$) is reduced to a simple scalar product:
 \[
@@ -157,7 +159,7 @@ To be run on GPUs, the code has been ported to \textsc{cuda}: each step -
 unpack, combine and track fit - is performed by a specific kernel;
 the three nested loops are unrolled so that each GPU thread processes a 
 single combination of hits. 
-To run on MIC, we adopted the so-called \textit{embarassingly parallel} 
+To run on MIC, we adopted the so-called \textit{embarrassingly parallel} 
 approach and used pragma OpenMP for statements to unroll the external loop 
 on the events, so that each core processes a single event: the porting 
 requires much less effort compared to CUDA, but the level of parallelism is 
@@ -189,7 +191,7 @@ To measure the data transfer latency we use a computing cluster composed of
 CPU and two Tesla M2075 GPU cards. The nodes are connected by InfiniBand 
 communication links using Connect-X2 Mellanox or Apenet+ adapters. 
 Apenet+ is an FPGA-based PCIe board supporting peer-to-peer communication with 
-Tesla and Kepler cards~\cite{bib_Apenet}.
+Tesla and Kepler cards~\cite{apenet2010}.
 Two nodes of this cluster are used to measure data transfer latency,
 one acting as a transmitter and the
 other as a receiver.  Data are transferred from the transmitter to the 
@@ -382,37 +384,22 @@ Istituto Nazionale di Fisica Nucleare.
 \section*{References}
 
 %% CHEP2013 recommended style for bibliography
-%\bibliographystyle{iopart-num}
+\bibliographystyle{iopart-num}
 
-%\bibliography{gpu}
-
-\begin{thebibliography}{99}
-\bibitem{bib_nvidia} \url{http://www.nvidia.com}
-
-\bibitem{bib_tipp2011} W.~Ketchum \textit{et al.}, \emph{Performance Study of GPUs in Real-Time Trigger Applications for HEP Experiments},  Physics Procedia, Volume 37, 2012, 1965-1972.
-
-\bibitem{bib_nss2012} P.~Wittich \textit{et al.}, \emph{Applications of GPUs to online track reconstruction in HEP experiments}, published in Nuclear Science Symposium and Medical Imaging Conference (NSS/MIC), 2012 IEEE, \href{http://dx.doi.org/10.1109/NSSMIC.2012.6551422}{10.1109/NSSMIC.2012.6551422}
-
-\bibitem{bib_SVT1} B.~Ashmanskas \emph{et al.}, \emph{The CDF Silicon    Vertex Trigger}, Nucl.~Instrum.~Meth. A \textbf{518} (2004) 532–536. \href{http://dx.doi.org/10.1016/j.nima.2003.11.078}{doi:10.1016/j.nima.2003.11.078}
+\bibliography{gpu}
 
 
-\bibitem{bib_cuda} \url{http://www.nvidia.com/object/cuda_home_new.html}
+% \bibitem{bib_cuda} \url{http://www.nvidia.com/object/cuda_home_new.html}
 
-\bibitem{bib_OpenCL} \url{http://www.khronos.org/opencl/}
+% \bibitem{bib_OpenCL} \url{http://www.khronos.org/opencl/}
 
-%\bibitem{bib_GPU_TIPP2011} Physics Procedia, Volume 37, 2012, 1965-1972.
-\bibitem{bib_Apenet} R.~Ammendola \textit{et al.}, \emph{APEnet+: a 3D toroidal network enabling Petaflops scale Lattice QCD simulations on commodity clusters}  PoS(Lattice 2010)022.
-
-
-\bibitem{bib_GPUDirect} \url{https://developer.nvidia.com/gpudirect}
+% %\bibitem{bib_GPU_TIPP2011} Physics Procedia, Volume 37, 2012, 1965-1972.
+% \bibitem{bib_Apenet} R.~Ammendola \textit{et al.}, \emph{APEnet+: a 3D toroidal network enabling Petaflops scale Lattice QCD simulations on commodity clusters}  PoS(Lattice 2010)022.
 
 
-\bibitem{bib_SVT2} J.~A.~Adelman \emph{et al.}, \emph{The Silicon    Vertex Trigger upgrade at CDF}, Nucl.~Instrum.~Meth. A \textbf{572} (2007)  361–364. 
-
-\bibitem{bib_SVT3} S. Amerio \emph{et al.}, \emph{The GigaFitter: Performance at CDF and perspectives for future applications}, J.Phys.Conf.Ser. 219 (2010) 022001.
+% \bibitem{bib_GPUDirect} \url{https://developer.nvidia.com/gpudirect}
 
 
-\end{thebibliography}
  
 
 \end{document}
