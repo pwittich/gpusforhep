@@ -156,7 +156,7 @@ int  svtsim_get_gfMkAddr_GPU(global struct extra_data* edata_dev, int *d, int nd
 }
 
  int gf_fit_proc_GPU(int hit[], int sign_crv, long int coeff[], 
-		     unsigned long intcp, global unsigned long *result, global int *err) {
+		     unsigned long intcp, global int *result, global int *err) {
 
   unsigned long temp = 0;
   //int i = 0;
@@ -743,8 +743,8 @@ int gf_formatter_GPU(int ie, int ir, int ic, int ich, int chi2,
 
 }
 
-__kernel void gf_fit_format_GPU (global struct fep_arrays* fep_dev, 
-				 global struct fit_arrays* fit_dev, int maxEvt ) {
+__kernel void gf_fit_format_GPU(global struct fep_arrays* fep_dev, 
+				global struct fit_arrays* fit_dev) {
 
   int ie, ir, ic, ich;
   long int temp = 0;
@@ -756,10 +756,9 @@ __kernel void gf_fit_format_GPU (global struct fep_arrays* fep_dev,
   ic = get_local_id(0);
   ich = get_local_id(1);
 
-  if ( ( ie < maxEvt ) && 
-      ( ir < fep_dev->fep_nroads[ie] ) && 
-      ( ic < fep_dev->fep_ncmb[ie][ir] ) && 
-      ( ich < fep_dev->fep_ncomb5h[ie][ir][ic] ) ) {
+  if ( ( ir < fep_dev->fep_nroads[ie] ) && 
+       ( ic < fep_dev->fep_ncmb[ie][ir] ) && 
+       ( ich < fep_dev->fep_ncomb5h[ie][ir][ic] ) ) {
 
     /* phi */
     temp = fit_dev->fit_fit[ie][0][ir][ic][ich];
@@ -998,7 +997,7 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
 }
 
 __kernel void gf_comparator_GPU(global struct fep_arrays* fep_dev, global struct evt_arrays* evt_dev, 
-				global struct fit_arrays* fit_dev, global struct fout_arrays* fout_dev, int maxEvt) {
+				global struct fit_arrays* fit_dev, global struct fout_arrays* fout_dev) {
 
   int ie, ir, ic;
   int ChiSqCut, gvalue, gvalue_best;
@@ -1017,8 +1016,7 @@ __kernel void gf_comparator_GPU(global struct fep_arrays* fep_dev, global struct
 
   ic = get_local_id(0);
 
-  if ( ( ie < maxEvt ) &&
-        ( ir < fep_dev->fep_nroads[ie] ) &&
+  if (  ( ir < fep_dev->fep_nroads[ie] ) &&
         ( ic < fep_dev->fep_ncmb[ie][ir] )) {
 
     ChiSqCut = 0x40;
@@ -1068,12 +1066,11 @@ __kernel void gf_comparator_GPU(global struct fep_arrays* fep_dev, global struct
 }
 
 __kernel void gf_compute_eeword_GPU( global struct fep_arrays* fep_dev, global struct fit_arrays* fit_dev, 
-				     global struct fout_arrays* fout_dev, int maxEvt) {
+				     global struct fout_arrays* fout_dev) {
 
   int   eoe_err;
   int   ie = get_group_id(0) * get_local_size(0) + get_local_id(0);
 
-  if ( ie < maxEvt ) {
     fout_dev->fout_err_sum[ie] = (fep_dev->fep_err_sum[ie] | fit_dev->fit_err_sum[ie]);
     gf_formatter_err_GPU(fout_dev->fout_err_sum[ie], GF_ERRMASK_CDF,
                       GF_ERRMASK_SVT, GF_ERRMASK_EOE,
@@ -1084,5 +1081,5 @@ __kernel void gf_compute_eeword_GPU( global struct fep_arrays* fep_dev, global s
                                 (gf_maskdata_GPU[SVT_WORD_WIDTH] & ~(1<<SVT_PAR_BIT)));
     fout_dev->fout_ee_word[ie] |= (eoe_err<<SVT_ERR_LSB);
     fout_dev->fout_ee_word[ie] |= (fout_dev->fout_parity[ie]<<SVT_PAR_BIT); 
-  } 
+
 }

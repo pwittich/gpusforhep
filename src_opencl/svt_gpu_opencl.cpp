@@ -135,6 +135,7 @@ int main(int argc, char* argv[]) {
   struct fep_arrays *fep_dev = new fep_arrays;
   struct extra_data *edata_dev = new extra_data;
   struct fit_arrays *fit_dev = new fit_arrays;
+  struct fout_arrays *fout_dev = new fout_arrays;
 
   bool is_null=false;
   if(evt==NULL) is_null=true;;
@@ -329,14 +330,28 @@ int main(int argc, char* argv[]) {
     cl::Kernel kernel_kFit(fit_program, kernelFunc_kFit.c_str(), &err);
     CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
     std::cout << __FANCY__ << "Entry point set to " << kernelFunc_kFit << std::endl;
-    /*
+
     //====================================
     //set kernel entry point
     std::string kernelFunc_fit_format = "gf_fit_format_GPU";
-    cl::Kernel kernel_fep_set(program, kernelFunc_fep_set.c_str(), &err);
+    cl::Kernel kernel_fit_format(fit_program, kernelFunc_fit_format.c_str(), &err);
     CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
-    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_set << std::endl;
-    */
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fit_format << std::endl;
+
+    //====================================
+    //set kernel entry point
+    std::string kernelFunc_comparator = "gf_comparator_GPU";
+    cl::Kernel kernel_comparator(fit_program, kernelFunc_comparator.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_comparator << std::endl;
+
+    //====================================
+    //set kernel entry point
+    std::string kernelFunc_compute_eeword = "gf_compute_eeword_GPU";
+    cl::Kernel kernel_compute_eeword(fit_program, kernelFunc_compute_eeword.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_compute_eeword << std::endl;
+
     // Get the maximum work group size for executing the kernel on the device
     
     cl::NDRange maxWorkGroupSize;
@@ -404,6 +419,16 @@ int main(int argc, char* argv[]) {
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
     
+    cl::Buffer fout_dev_CL(
+			    context,
+			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+			    sizeof(fout_arrays),
+			    //edata_dev,
+			    NULL,
+			    &err);
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+
     gettimeofday(&ptBegin, NULL);
     gf_fep_unpack_evt(evt, k, data_send);
     printf("Total events %d\n\n",evt->totEvts);
@@ -421,6 +446,18 @@ int main(int argc, char* argv[]) {
     err = kernel_kFit.setArg(0, fep_dev_CL);
     err = kernel_kFit.setArg(1, edata_dev_CL);
     err = kernel_kFit.setArg(2, fit_dev_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_fit_format.setArg(0, fep_dev_CL);
+    err = kernel_fit_format.setArg(1, fit_dev_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_comparator.setArg(0, fep_dev_CL);
+    err = kernel_comparator.setArg(1, evt_CL);
+    err = kernel_comparator.setArg(2, fit_dev_CL);
+    err = kernel_comparator.setArg(3, fout_dev_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_compute_eeword.setArg(0, fep_dev_CL);
+    err = kernel_compute_eeword.setArg(1, fit_dev_CL);
+    err = kernel_compute_eeword.setArg(2, fout_dev_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
     printf("We have prepared the buffers and are ready to go!\n");
 
@@ -473,6 +510,38 @@ int main(int argc, char* argv[]) {
 
     event.wait();
 
+    err = queue.enqueueNDRangeKernel(
+				     kernel_fit_format,
+				     cl::NullRange,
+				     cl::NDRange(NEVTS*MAXCOMB,MAXROAD*MAXCOMB5H),
+				     cl::NDRange(MAXCOMB,MAXCOMB5H),
+				     NULL,
+				     &event);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+
+    event.wait();
+
+    err = queue.enqueueNDRangeKernel(
+				     kernel_comparator,
+				     cl::NullRange,
+				     cl::NDRange(NEVTS*MAXCOMB,MAXROAD),
+				     cl::NDRange(MAXCOMB,1),
+				     NULL,
+				     &event);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+
+    event.wait();
+
+    err = queue.enqueueNDRangeKernel(
+				     kernel_compute_eeword,
+				     cl::NullRange,
+				     cl::NDRange(NEVTS+255),
+				     cl::NDRange(256),
+				     NULL,
+				     &event);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+
+    event.wait();
 
     printf("Error was ... %d\n",err);
     err = queue.finish();
@@ -503,6 +572,14 @@ int main(int argc, char* argv[]) {
 				  edata_dev);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
 
+    err = queue.enqueueReadBuffer(
+				  fout_dev_CL,
+				  CL_TRUE,
+				  0,
+				  sizeof(fout_arrays),
+				  fout_dev);
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+
     //printf("We made it here (1)...\n");
     //printf("fep_dev = %p\n", fep_dev);
     //		     rdtscl(start);
@@ -522,7 +599,7 @@ int main(int argc, char* argv[]) {
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
     for(int ie=0; ie<NEVTS; ie++){
-      printf("\nEvent %d, nroads = %d, fep_err_sum=%d, fit_err_sum=%d",ie,fep_dev->fep_nroads[ie],fep_dev->fep_err_sum[ie],fit_dev->fit_err_sum[ie]);
+      printf("\nEvent %d, nroads = %d, fep_err_sum=%d, fit_err_sum=%d, fout_ntrks=%d",ie,fep_dev->fep_nroads[ie],fep_dev->fep_err_sum[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie]);
       for(int ir=0; ir<MAXROAD; ir++){
 	if(fep_dev->fep_ncmb[ie][ir]!=0)
 	  printf("\n\tRoad %d, ncomb = %d",ir,fep_dev->fep_ncmb[ie][ir]);
