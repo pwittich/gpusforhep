@@ -842,6 +842,7 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
    int coe_addr, int_addr; // Address for coefficients and intercept //
    int mka_addr; // Address for MKADDR memory //
    //unsigned long theintcp = 0;
+   unsigned long theintcp = 0;
    int sign_crv = 0;
    int which, lwhich;
    int iz;
@@ -864,13 +865,9 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
 
    const int ic = get_local_id(0);//threadIdx.x; // combination index
    const int ip = get_local_id(1);//get_local_id(1); // fitter index
-   //fep_dev->fep_err_sum[ie] = ie;
-   fit_dev->fit_err_sum[ie] = 0;
-   //edata_dev->wedge[ie]=ie;
-   
+
   fit_dev->fit_err_sum[ie] = fep_dev->fep_err_sum[ie];
-     
-    
+
   if (  ( ir < fep_dev->fep_nroads[ie] ) && 
         ( ic < fep_dev->fep_ncmb[ie][ir] ) ) {
 
@@ -878,19 +875,15 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
 
       gf_mkaddr_GPU(edata_dev, fep_dev->fep_hitmap[ie][ir][ic], fep_dev->fep_lcl[ie][ir][ic], fep_dev->fep_zid[ie][ir],
                   &coe_addr, &int_addr, &mka_addr, fit_dev->fit_err_sum);
-      
+    
       int_addr = (int_addr<<OFF_SUBA_LSB) + fep_dev->fep_road[ie][ir];
-      
-      const int iz = fep_dev->fep_zid[ie][ir]&7;
 
-      which = coe_addr/6;
+      iz = fep_dev->fep_zid[ie][ir]&7;
+      which = coe_addr/6; 
       lwhich = which;
-      which = edata_dev->whichFit[iz][which];
 
-      //const int lwhich = coe_addr/6; 
-      //lwhich = which;
-      //const int which = edata_dev->whichFit[iz][lwhich];
-      
+      which = edata_dev->whichFit[iz][which];
+    
       for (ih = 0; ih < SVTNHITS; ih++) {
 
         coeff[ip][ih] = map[lwhich][ih] < 0 ? 0 : (edata_dev->lfitparfcon[ip][map[lwhich][ih]][iz][which]);
@@ -912,36 +905,32 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
         
           }
 
-      } // end for(ih = 0; ih < SVTNHITS; ih++) //
-      
-      //const unsigned long theintcp = edata_dev->lfitparfcon[ip][6][iz][which] << 18;
-      const unsigned long theintcp = 0;
+      } /* end for(ih = 0; ih < SVTNHITS; ih++) */
 
-      fit_dev->fit_fit[ie][ip][ir][ic][0] = 0;
-      fit_dev->fit_err[ie][ir][ic][0] = 0;
-      
+      theintcp = edata_dev->lfitparfcon[ip][6][iz][which] << 18;
+
       gf_fit_proc_GPU(hit, sign_crv, coeff[ip], theintcp, &(fit_dev->fit_fit[ie][ip][ir][ic][0]), &(fit_dev->fit_err[ie][ir][ic][0]));      
-      
-    } else { // 5/5 track transformed in 5 4/5 tracks//
+
+    } else { /* 5/5 track transformed in 5 4/5 tracks*/
 
       for (ih = 0; ih < NSVX_PLANE; ih++) {
-        for (il = 0; il < NSVX_PLANE; il++) { // one call to gf_fit_proc  for each ih value //
-        // let's calculate the new hitmap //
+        for (il = 0; il < NSVX_PLANE; il++) { /* one call to gf_fit_proc  for each ih value */
+        /* let's calculate the new hitmap */
           if (il != ih) {
             switch (ih) {
-              case 0 :     //  11110 //
+              case 0 :     /*  11110 */
                 newhitmap = 0x1e;
               break;
-              case 1 :     //  11101 //
+              case 1 :     /*  11101 */
                 newhitmap = 0x1d;
               break;
-              case 2 :     //  11011 //
+              case 2 :     /*  11011 */
                 newhitmap = 0x1b;
               break;
-              case 3 :     //  10111 //
+              case 3 :     /*  10111 */
                 newhitmap = 0x17;
               break;
-              case 4 :     //  01111 //
+              case 4 :     /*  01111 */
                 newhitmap = 0x0f;
               break;
             }
@@ -957,9 +946,6 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
             which = coe_addr/6;
             lwhich = which;
             which = edata_dev->whichFit[iz][which];
-	    //const int lwhich = coe_addr/6; 
-	    //lwhich = which;
-	    //const int which = edata_dev->whichFit[iz][lwhich];
 
             coeff[ip][il] = map[lwhich][il] < 0 ? 0 : (edata_dev->lfitparfcon[ip][map[lwhich][il]][iz][which]);
             hit[il] = ((fep_dev->fep_hit[ie][ir][ic][il] << 1) + 1) & gf_maskdata_GPU[15];
@@ -968,7 +954,7 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
             hit[il] = 0 ;
             coeff[ip][il]= 1;
           }
-        } // end for(il = 0; il <  NSVX_PLANE; il++)  //
+        } /* end for(il = 0; il <  NSVX_PLANE; il++)  */
 
         hit[HIT_PHI] = fep_dev->fep_phi[ie][ir][ic];
         hit[HIT_PHI] -= edata_dev->wedge[ie]*SVTSIM_XFTPHIBINS/SVTSIM_NWEDGE;
@@ -981,17 +967,16 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
 
         coeff[ip][HIT_CRV] = map[lwhich][HIT_CRV] < 0 ? 0 : (edata_dev->lfitparfcon[ip][map[lwhich][HIT_CRV]][iz][which]);
 
-        // INTERCEPT //
-        unsigned long theintcp = edata_dev->lfitparfcon[ip][6][iz][which] << 18;
+        /* INTERCEPT */
+        theintcp = edata_dev->lfitparfcon[ip][6][iz][which] << 18;
 
         gf_fit_proc_GPU(hit, sign_crv, coeff[ip], theintcp, &(fit_dev->fit_fit[ie][ip][ir][ic][ih]), &(fit_dev->fit_err[ie][ir][ic][ih]));
 
         fit_dev->fit_err_sum[ie] |= fit_dev->fit_err[ie][ir][ic][ih];
 
-      } // end for(ih = 0; ih < NSVX_PLANE; ih++) //
-      
-    } // end if(tf->fep_hitmap[ie][ir][ic] != 0x1f) //
-  } // enf if on indexes //
+      } /* end for(ih = 0; ih < NSVX_PLANE; ih++) */
+    } /* end if(tf->fep_hitmap[ie][ir][ic] != 0x1f) */
+  } /* enf if on indexes */
 
   
 }

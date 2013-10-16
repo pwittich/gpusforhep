@@ -252,6 +252,34 @@ int main(int argc, char* argv[]) {
 
     //====================================
     //build program source
+    std::string kernel_file_init = "gf_init.cl";
+    std::ifstream file_init((kernel_file_init).c_str());
+    CL_HELPERFUNCS::checkErr(file_init.is_open() ? CL_SUCCESS:-1, (kernel_file_init).c_str());
+    
+    
+    //TODO-RAR add build options
+    std::string prog_init(std::istreambuf_iterator<char>(file_init),
+		     (std::istreambuf_iterator<char>()));
+    std::string buildOptions_init;
+    { // create preprocessor defines for the kernel
+      char buf[256]; 
+      //sprintf(buf,"-cl-mad-enable -D DATAWORD=%s ", dataType.getType().c_str());
+      sprintf(buf,"-cl-mad-enable -I./");
+      buildOptions_init = buf;
+      std::cout << __FANCY__ << "buildOptions = " << buildOptions_init << std::endl;
+    }
+    
+    cl::Program::Sources source_init(1,std::make_pair(prog_init.c_str(), prog_init.length()));
+    
+    cl::Program program_init(context, source_init);
+    
+    err = program_init.build(*(deviceList[plat_i]),buildOptions_init.c_str());
+	      
+    CL_HELPERFUNCS::displayBuildLog(program_init, device);
+    CL_HELPERFUNCS::checkErr(err, "Build::Build()");
+
+    //====================================
+    //build program source
     std::string kernel_file = "gf_fep.cl";
     std::ifstream file((kernel_file).c_str());
     CL_HELPERFUNCS::checkErr(file.is_open() ? CL_SUCCESS:-1, (kernel_file).c_str());
@@ -280,6 +308,13 @@ int main(int argc, char* argv[]) {
     
     
     
+    //====================================
+    //set kernel entry point
+    std::string kernelFunc_init = "init_arrays_GPU";
+    cl::Kernel kernel_init(program_init, kernelFunc_init.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::cout << __FANCY__ << "Entry point set to " << kernelFunc_init << std::endl;
+
     //====================================
     //set kernel entry point
     std::string kernelFunc_fep_comb = "gf_fep_comb_GPU";
@@ -428,6 +463,23 @@ int main(int argc, char* argv[]) {
 			    NULL,
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+
+    err = kernel_init.setArg(0, evt_CL);
+    err = kernel_init.setArg(1, fout_dev_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+
+    err = queue.enqueueNDRangeKernel(
+				     kernel_init,
+				     cl::NullRange,
+				     cl::NDRange(NEVTS*MAXROAD),
+				     cl::NDRange(NSVX_PLANE+1,1),
+				     NULL,
+				     &event);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+
+    event.wait();
+
+
 
     gettimeofday(&ptBegin, NULL);
     gf_fep_unpack_evt(evt, k, data_send);
@@ -580,6 +632,9 @@ int main(int argc, char* argv[]) {
 				  fout_dev);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
 
+    err = queue.finish();
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
+
     //printf("We made it here (1)...\n");
     //printf("fep_dev = %p\n", fep_dev);
     //		     rdtscl(start);
@@ -599,14 +654,26 @@ int main(int argc, char* argv[]) {
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
     for(int ie=0; ie<NEVTS; ie++){
-      printf("\nEvent %d, nroads = %d, fep_err_sum=%d, fit_err_sum=%d, fout_ntrks=%d",ie,fep_dev->fep_nroads[ie],fep_dev->fep_err_sum[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie]);
+      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie]);
+      /*
       for(int ir=0; ir<MAXROAD; ir++){
 	if(fep_dev->fep_ncmb[ie][ir]!=0)
 	  printf("\n\tRoad %d, ncomb = %d",ir,fep_dev->fep_ncmb[ie][ir]);
 	for(int ic=0; ic<fep_dev->fep_ncmb[ie][ir]; ic++){
-	  printf("\n\t\t ncomb5h=%d",fep_dev->fep_ncomb5h[ie][ir][ic]);
+	  printf("\n\t\t hitmap=%d\t",fep_dev->fep_hitmap[ie][ir][ic]);
+	  for(int ip=0; ip<NSVX_PLANE; ip++){
+	    printf(" %d",fep_dev->fep_hit[ie][ir][ic][ip]);
+	  }
+	  printf("\t ncom5h=%d",fep_dev->fep_ncomb5h[ie][ir][ic]);
+	  for(int ic5=0; ic5< fep_dev->fep_ncomb5h[ie][ir][ic]; ic5++){
+	    printf("\n\t\t\t fit_err=%d \n\t\t\t fit_fit=",fit_dev->fit_err[ie][ir][ic][ic5]);
+	    for(int ip=0; ip<6; ip++){
+	      printf(" %lu",fit_dev->fit_fit[ie][ip][ir][ic][ic5]);
+	    }
+	  }
 	}
       }
+      */
     }
 
 
