@@ -352,22 +352,8 @@ svtsim_cable_t * svtsim_cable_new(void) {
 }
  
 
-
- 
- /*
-  * Map layerMask, lcMask into fit block (0..31) for fully general case
-  * in which all fit constants are available.  Note that blocks 25..30
-  * are set up for some exotic cases that may never really occur.  Note
-  * also that before 2002-12-15 or so, only fit block 0 was actually
-  * used, and that as of 2002-12-15, no fit constants yet exist (or are
-  * planned) that make use of the LC bits.
- 
-  * Note even further that the upgraded TF has NO room for fit constants
-  * that use the LC bits, but we do use them 
-  * to select the constants when we have 5/5 roads
-  */
  int
- svtsim_whichFit_full(tf_arrays_t tf, int zin, int layerMask, int lcMask)
+ svtsim_whichFit_full(int zin, int layerMask, int lcMask)
  {
    /*
     * Key (*=LC, 5=XFT):
@@ -488,13 +474,11 @@ svtsim_cable_t * svtsim_cable_new(void) {
      
    }
  }
- 
- /*
-  * Map layerMask, lcMask into fit block (0..31), allowing for
-  * degeneracy in TF mkaddr map
-  */
- int
- svtsim_whichFit(tf_arrays_t tf, int zin, int layerMask, int lcMask)
+
+
+
+  int
+ svtsim_whichFit(struct extra_data* edata, int zin, int layerMask, int lcMask)
  {
 #ifdef DEBUG_SVT 
    printf("in svtsim_whichFit: zin = %d, layerMask = %x, lcMask = %x\n", zin, layerMask, lcMask);
@@ -502,8 +486,8 @@ svtsim_cable_t * svtsim_cable_new(void) {
 
    int which0 = 0, which = 0;
    if (zin<0 || zin>=SVTSIM_NBAR) zin = 0;
-   which0 = svtsim_whichFit_full(tf, zin, layerMask, lcMask);
-   which = tf->whichFit[zin][which0];
+   which0 = svtsim_whichFit_full(zin, layerMask, lcMask);
+   which = edata->whichFit[zin][which0];
 
 #ifdef DEBUG_SVT 
    printf("in svtsim_whichFit: which0 = %d, which = %x\n", which0, which);
@@ -511,8 +495,10 @@ svtsim_cable_t * svtsim_cable_new(void) {
 
    return which;
  }
- 
- 
+
+
+
+
  /*
   * Integer binary logarithm (ceil(log(fabs(ix+epsilon))/log(2)))
   */
@@ -541,14 +527,8 @@ svtsim_cable_t * svtsim_cable_new(void) {
    return 0;
  }
  
- 
- 
- 
-int svtsim_fconread(tf_arrays_t tf)
+ int svtsim_fconread(tf_arrays_t tf, struct extra_data* edata)
  {
-   
-  
- 
    int i = 0, j = 0, k = 0, which = 0;
    char fconFile[SVTSIM_NBAR][100];
    char fcf[SVTSIM_NBAR][100];
@@ -562,11 +542,11 @@ int svtsim_fconread(tf_arrays_t tf)
    tf->dphiNumer = WEDGE;
    
    for (i = 0; i<NEVTS; i++) {
-     tf->wedge[i]=WEDGE;
+     edata->wedge[i]=WEDGE;
    }
 
    for (i = 0; i<SVTSIM_NBAR; i++) {
-     sprintf(str, "../test/offln_220050_20100810_w%dz%d.fcon", WEDGE, i);    
+     sprintf(str, "offln_220050_20100810_w%dz%d.fcon", WEDGE, i);    
      strncpy(fcf[i], str, sizeof(fcf[i])-1);    
      //     printf("fcf[%d] = %s\n", i,  fcf[i]);
    }
@@ -599,7 +579,7 @@ int svtsim_fconread(tf_arrays_t tf)
       /*
        * Initialize all whichFit entries to bogus values
        */
-      for (i = 0; i<SVTSIM_NEL(tf->whichFit[k]); i++) tf->whichFit[k][i] = -1;
+      for (i = 0; i<SVTSIM_NEL(edata->whichFit[k]); i++) edata->whichFit[k][i] = -1;
  
       /*
        * Open .fcon
@@ -661,8 +641,8 @@ int svtsim_fconread(tf_arrays_t tf)
 	  if (layers[l]=='X') bogusLayers = 1;
         }
         if (bogusLayers) continue;
-        which = svtsim_whichFit_full(tf, k, layerMask, 0);
-        tf->whichFit[k][which] = which;
+        which = svtsim_whichFit_full(k, layerMask, 0);
+        edata->whichFit[k][which] = which;
         if(0) printf("w=%d z=%d: found detLayers=%s => "
  		    "amLayers=%s mask=%x which=%d\n", 
  		    WEDGE, k, str, layers, layerMask, which);
@@ -712,15 +692,15 @@ int svtsim_fconread(tf_arrays_t tf)
   	    tf->lfitpar[l][j][k][which] = 
   	      (tf->lfitpar[l][j][k][which] >> h[j]);
   	    /* fill lfitparfcon array with constants as read from fcon file SA*/
-  	    tf->lfitparfcon[l][j][k][which] = fc[j];
+  	    edata->lfitparfcon[l][j][k][which] = fc[j];
   #ifdef DEBUG_READFCON
-  	    printf("lfitparfcon[%d][%d][%d][%d] = %.6x\n", l, j, k, which, tf->lfitparfcon[l][j][k][which]);
+  	    printf("lfitparfcon[%d][%d][%d][%d] = %.6x\n", l, j, k, which, edata->lfitparfcon[l][j][k][which]);
   #endif
   	}
   	tf->gcon[l][DIMSPA][k][which] = fc[DIMSPA]*pstep;
   	tf->lfitpar[l][DIMSPA][k][which] = fc[DIMSPA];
   	/* fill lfitparfcon array with constants as read from fcon file SA*/
-  	tf->lfitparfcon[l][DIMSPA][k][which] = fc[DIMSPA];
+  	edata->lfitparfcon[l][DIMSPA][k][which] = fc[DIMSPA];
   #ifdef DEBUG_READFCON
   	printf("fc[%d] = %.6x, %.d\n", DIMSPA, fc[DIMSPA], fc[DIMSPA]);
   #endif
@@ -730,13 +710,13 @@ int svtsim_fconread(tf_arrays_t tf)
   	    tf->lfitpar[l][DIMSPA][k][which] += 
   	      twopi*tf->dphiNumer/tf->dphiDenom;
   	    /* fill lfitparfcon array with constants as read from fcon file SA*/   
-  	       tf->lfitparfcon[l][DIMSPA][k][which] += 
+  	       edata->lfitparfcon[l][DIMSPA][k][which] += 
   		 twopi*tf->dphiNumer/tf->dphiDenom;
   	       if (tf->lfitpar[l][DIMSPA][k][which]<0) 
   		 tf->lfitpar[l][DIMSPA][k][which] += twopi;
-  	       /* fill tf->lfitparfcon array with constants as read from fcon file SA*/   
-  	       if (tf->lfitparfcon[l][DIMSPA][k][which]<0) 
-  		 tf->lfitparfcon[l][DIMSPA][k][which] += twopi;
+  	       /* fill edata->lfitparfcon array with constants as read from fcon file SA*/   
+  	       if (edata->lfitparfcon[l][DIMSPA][k][which]<0) 
+  		 edata->lfitparfcon[l][DIMSPA][k][which] += twopi;
   	         tf->gcon[l][DIMSPA][k][which] += 
   		   2*M_PI*tf->dphiNumer/tf->dphiDenom;
   	}
@@ -754,9 +734,9 @@ int svtsim_fconread(tf_arrays_t tf)
        int shftmax_svx = -99, shftmax_phi = -99, shftmax_crv = -99;
        int ishft_svx = 0, ishft_phi = 0, ishft_crv = 0;
        for (k = 0; k<SVTSIM_NBAR; k++) {
-         for (which = 0; which<SVTSIM_NEL(tf->whichFit[k]); which++) {
+         for (which = 0; which<SVTSIM_NEL(edata->whichFit[k]); which++) {
    	int ishft = 0;
-   	if (tf->whichFit[k][which]!=which) continue;
+   	if (edata->whichFit[k][which]!=which) continue;
    	for (j = 0; j<4; j++) {
    	  ishft = ilog(tf->lfitpar[i][j][k][which])-30;
    	  if (ishft>shftmax_svx) shftmax_svx = ishft;
@@ -797,8 +777,8 @@ int svtsim_fconread(tf_arrays_t tf)
    	default:
    	  ishift = 30-(tf->result_shiftbits[i]);
    	}
-   	for (which = 0; which<SVTSIM_NEL(tf->whichFit[k]); which++) {
-   	  if (tf->whichFit[k][which]!=which) continue;
+   	for (which = 0; which<SVTSIM_NEL(edata->whichFit[k]); which++) {
+   	  if (edata->whichFit[k][which]!=which) continue;
    	    tf->ifitpar[i][j][k][which] = 
    	      tf->lfitpar[i][j][k][which] >> ishift;
    	}
@@ -810,25 +790,25 @@ int svtsim_fconread(tf_arrays_t tf)
         */
        for (i = 0; i<=0x3f; i++) {
          int which0 = -1;
-         which = svtsim_whichFit_full(tf, k, i, 0);
+         which = svtsim_whichFit_full(k, i, 0);
          /*
           * If layer combination has no entry, use a bogus entry
           */
-         if (tf->whichFit[k][which]<0) 
-	   tf->whichFit[k][which] = tf->mkaddrBogusValue;
-         which0 = tf->whichFit[k][which];
+         if (edata->whichFit[k][which]<0) 
+	   edata->whichFit[k][which] = tf->mkaddrBogusValue;
+         which0 = edata->whichFit[k][which];
          for (j = 0; j<=0x1f; j++) {
-   	which = svtsim_whichFit_full(tf,k, i, j);
+   	which = svtsim_whichFit_full(k, i, j);
    	/*
    	 * If long-cluster combination has no entry, use the no-LC entry
    	 */
-   	if (tf->whichFit[k][which]<0) tf->whichFit[k][which] = which0;
+   	if (edata->whichFit[k][which]<0) edata->whichFit[k][which] = which0;
          }
        }
        if (0) {
          printf("whichfit(%d):", k);
-         for (i = 0; i<SVTSIM_NEL(tf->whichFit[k]); i++)
-   	printf(" %d", tf->whichFit[k][i]);
+         for (i = 0; i<SVTSIM_NEL(edata->whichFit[k]); i++)
+   	printf(" %d", edata->whichFit[k][i]);
          printf("\n");
        }
      }
@@ -847,7 +827,7 @@ int svtsim_fconread(tf_arrays_t tf)
    	  printf("ipar=%d, idim=%d, ibar=%d, ifitBlock=%d, tf->ifitpar = %.6x, lfitparfcon = %.6llx\n", 
    		 ipar, idim, ibar, ifitBlock,      
    		 tf->ifitpar[ipar][idim][ibar][ifitBlock],
-   		 tf->lfitparfcon[ipar][idim][ibar][ifitBlock]);
+   		 edata->lfitparfcon[ipar][idim][ibar][ifitBlock]);
    	}
          }
          
@@ -2630,7 +2610,7 @@ int gf_formatter(tf_arrays_t tf,int ie, int ir, int ic, int ich,int chi2) {
               fit; FIT output
 	      ir; the road ID  (=-1 and ic=-1 means the EE word.)
 	      ic; the combination ID
-	      chi2; the Chi^2 value.
+	      chi2; the Chi//2 value.
        OUTPUT: *form_out; 
       */
 

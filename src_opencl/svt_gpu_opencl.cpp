@@ -22,6 +22,31 @@ void svt_GPU(tf_arrays_t tf, unsigned int *data_in, int n_words) {
 
 }
 
+
+void set_outcable_fout(fout_arrays* fout_dev, int totEvts, unsigned int *&data_rec, int &ow) {
+
+  svtsim_cable_t *out;
+  out = svtsim_cable_new();
+
+  svtsim_cable_copywords(out, 0, 0);
+
+  for (int ie=0; ie < totEvts; ie++) {
+    for (int nt=0; nt < fout_dev->fout_ntrks[ie]; nt++) {
+      svtsim_cable_addwords(out, fout_dev->fout_gfword[ie][nt], NTFWORDS);
+    }
+    svtsim_cable_addword(out, fout_dev->fout_ee_word[ie]);
+  }
+
+  ow = out->ndata;
+
+  for (int i=0; i < ow ; i++) {
+    data_rec[i] = out->data[i];
+  }
+
+//  svtsim_free(out);
+}
+
+
 void set_outcable(tf_arrays_t tf) {
 
   svtsim_cable_copywords(tf->out, 0, 0);
@@ -128,7 +153,10 @@ int main(int argc, char* argv[]) {
   tf_arrays_t tf;
 
   gf_init(&tf);
-  svtsim_fconread(tf);
+
+  unsigned int *data_rec = (unsigned int*)malloc(2500000*sizeof(unsigned));
+  int ow;
+
 
   struct evt_arrays *evt = new evt_arrays;
   int totEvts;
@@ -137,8 +165,12 @@ int main(int argc, char* argv[]) {
   struct fit_arrays *fit_dev = new fit_arrays;
   struct fout_arrays *fout_dev = new fout_arrays;
 
+  svtsim_fconread(tf, edata_dev);
+
+  free(tf);
+
   bool is_null=false;
-  if(evt==NULL) is_null=true;;
+  if(evt==NULL) is_null=true;
 
   printf("Is evt_arrays ptr null? bool=%d",is_null);
 
@@ -148,7 +180,7 @@ int main(int argc, char* argv[]) {
 
   if ( strcmp(where,"cpu") == 0 ) { // CPU
     printf("Start work on CPU..... \n");
-    
+   /* 
     gettimeofday(&ptBegin, NULL);
     gf_fep_unpack(tf, k, data_send);
     gettimeofday(&ptEnd, NULL);
@@ -181,7 +213,7 @@ int main(int argc, char* argv[]) {
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
     printf(".... fits %d events! \n", tf->totEvts);
-
+*/
   } else { // GPU
 
     HELPERFUNCS::TemplateDataType<DATAWORD> dataType;
@@ -201,7 +233,7 @@ int main(int argc, char* argv[]) {
 
     //this is for GTX 285...
     dev_i = 0;
-    plat_i = 1;	
+    //plat_i = 1;	
     
     //this is for AMD card...
     dev_i = 0;
@@ -420,6 +452,16 @@ int main(int argc, char* argv[]) {
 		      &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
 
+    cl::Buffer edata_dev_CL(
+			    context,
+			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			    0:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+			    sizeof(extra_data),
+			    //edata_dev,
+			    NULL,
+			    &err);
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
+    
     cl::Buffer fit_dev_CL(
 			  context,
 			  CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
@@ -443,23 +485,12 @@ int main(int argc, char* argv[]) {
 			  &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
     
-        
-    cl::Buffer edata_dev_CL(
-			    context,
-			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
-			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
-			    sizeof(extra_data),
-			    //edata_dev,
-			    NULL,
-			    &err);
-    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
-    
     cl::Buffer fout_dev_CL(
 			    context,
 			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			    sizeof(fout_arrays),
-			    //edata_dev,
+			    //fout_dev,
 			    NULL,
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
@@ -475,7 +506,7 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(NSVX_PLANE+1,1),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(init)");
 
     event.wait();
     /*
@@ -536,8 +567,17 @@ int main(int argc, char* argv[]) {
 				   0,
 				   sizeof(evt_arrays),
 				   evt);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueWriteBuffer()");
-    
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
+ 
+    err = queue.enqueueWriteBuffer(
+				  edata_dev_CL,
+				  CL_TRUE,
+				  0,
+				  sizeof(extra_data),
+				  edata_dev);
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
+
+   
     err = queue.enqueueNDRangeKernel(
 				     kernel_fep_comb,
 				     cl::NullRange,
@@ -545,7 +585,7 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXROAD),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_comb)");
 
     event.wait();
 
@@ -557,7 +597,7 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,1),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_set)");
 
     event.wait();
 
@@ -571,7 +611,7 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,NFITTER),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(kFit)");
 
     event.wait();
 
@@ -582,7 +622,7 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,MAXCOMB5H),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fit_format)");
 
     event.wait();
 
@@ -593,18 +633,18 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,1),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(comparator)");
 
     event.wait();
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_compute_eeword,
 				     cl::NullRange,
-				     cl::NDRange(NEVTS+255),
+				     cl::NDRange(NEVTS+156),
 				     cl::NDRange(256),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(compute_eeword)");
 
     event.wait();
 
@@ -630,14 +670,6 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
 
     err = queue.enqueueReadBuffer(
-				  edata_dev_CL,
-				  CL_TRUE,
-				  0,
-				  sizeof(extra_data),
-				  edata_dev);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
-
-    err = queue.enqueueReadBuffer(
 				  fout_dev_CL,
 				  CL_TRUE,
 				  0,
@@ -658,7 +690,7 @@ int main(int argc, char* argv[]) {
 				  0,
 				  sizeof(fep_arrays),
 				  fep_dev);
-    //printf("We made it here (2)...\n");
+    printf("We made it there...\n");
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
     //		     rdtscl(start);
     */
@@ -690,8 +722,9 @@ int main(int argc, char* argv[]) {
     }
 
 
-    set_outcable(tf);   
+    set_outcable_fout(fout_dev, NEVTS, data_rec, ow);   
   }
+
   gettimeofday(&tEnd, NULL);
   printf("Time to complete all: %.3f ms\n",
           ((tEnd.tv_usec + 1000000 * tEnd.tv_sec) - (tBegin.tv_usec + 1000000 * tBegin.tv_sec))/1000.0);
@@ -699,8 +732,13 @@ int main(int argc, char* argv[]) {
   // write output file
   FILE* OUTCHECK = fopen(fileOut, "w");
 
+/*
   for (int i=0; i< tf->out->ndata; i++)
     fprintf(OUTCHECK,"%.6x\n", tf->out->data[i]);
+*/
+
+  for (int i=0; i < ow; i++)
+    fprintf(OUTCHECK,"%.6x\n", data_rec[i]);
 
   fclose(OUTCHECK);
   
