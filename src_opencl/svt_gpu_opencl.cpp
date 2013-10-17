@@ -484,7 +484,7 @@ int main(int argc, char* argv[]) {
 			  NULL,
 			  &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
-    
+        
     cl::Buffer fout_dev_CL(
 			    context,
 			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
@@ -509,6 +509,17 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(init)");
 
     event.wait();
+
+    err = queue.enqueueWriteBuffer(
+				   edata_dev_CL,
+				   CL_TRUE,
+				   0,
+				   sizeof(extra_data),
+				   edata_dev);
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueWriteBuffer()");
+
+    event.wait();
+
     /*
     err = queue.enqueueReadBuffer(
 				  fout_dev_CL,
@@ -568,7 +579,8 @@ int main(int argc, char* argv[]) {
 				   sizeof(evt_arrays),
 				   evt);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
- 
+
+    /* 
     err = queue.enqueueWriteBuffer(
 				  edata_dev_CL,
 				  CL_TRUE,
@@ -576,7 +588,7 @@ int main(int argc, char* argv[]) {
 				  sizeof(extra_data),
 				  edata_dev);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
-
+    */
    
     err = queue.enqueueNDRangeKernel(
 				     kernel_fep_comb,

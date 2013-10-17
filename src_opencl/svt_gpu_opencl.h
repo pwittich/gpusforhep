@@ -6,8 +6,7 @@ extern "C" {
   int gf_init(tf_arrays_t* ptr_tf);
   int gf_init_evt(evt_arrays_t* ptr_evt);
   //int svtsim_fconread(tf_arrays_t tf);
-  int svtsim_fconread(tf_arrays_t tf, struct extra_data* edata);
-
+  int svtsim_fconread(tf_arrays_t tf, struct extra_data* edata_dev);
   int gf_fep_unpack(tf_arrays_t tf, int n_words_in, void* data);
   int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data);
   int gf_fep_comb(tf_arrays_t tf);

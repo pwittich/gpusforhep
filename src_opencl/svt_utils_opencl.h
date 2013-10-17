@@ -87,3 +87,40 @@ struct fout_arrays {
 
 };
 
+struct gf_data_arrays {
+
+ //output "cable"
+  svtsim_cable_t *out;
+  
+  //gf_memory
+  //int wedge[NEVTS]; //handled in extra_data
+  unsigned int *mem_mkaddr[NEVTS];
+  short mem_coeff[NFITTER][SVTNHITS][MAXCOE_VSIZE]; 
+  int mem_nintcp;
+  short (*intcp)[NFITTER];
+  int mem_fitsft[NFITTER][NSHIFTS]; 
+  /* int chi2[NCHI][MAXCHI2A]; */
+  int minhits; /* The minimum number of hits that we require 
+		  (including XFT hit)*/
+  int chi2cut;
+  int svt_emsk;
+  int gf_emsk;
+  int cdf_emsk;
+  int eoe_emsk; /* MASK for the errors */
+
+  //int whichFit[SVTSIM_NBAR][FITBLOCK];/* handles TF mkaddr degeneracy */ //handled in extra_data
+  int ifitpar[NFITPAR][DIMSPA+1][SVTSIM_NBAR][FITBLOCK];       /* TF coefficients, P0s */
+  unsigned long lfitpar[NFITPAR][DIMSPA+1][SVTSIM_NBAR][FITBLOCK];/* full-precision coeffs, P0s */ //handled in extra_data
+  //long long int lfitparfcon[NFITPAR][DIMSPA+1][SVTSIM_NBAR][FITBLOCK]; /* full-precision coeffs, P0s as read from fcon files SA*/
+  float gcon[NFITPAR][DIMSPA+1][SVTSIM_NBAR][FITBLOCK];     /* [fdc012][I0123PC][z][whichfit] */
+  int xftphi_shiftbits[NFITPAR];/* TF bit shifts */
+  int xftcrv_shiftbits[NFITPAR];
+  int result_shiftbits[NFITPAR];
+  int lMap[SVTSIM_NBAR][SVTSIM_NPL];/* map physical layer => cable layer */
+  int oX[SVTSIM_NBAR], oY[SVTSIM_NBAR];/* origin used for fcon */
+  float phiUnit, dvxUnit, crvUnit;/* units for fit parameters */
+  float k0Unit, k1Unit, k2Unit;/* units for constraints */
+  int dphiNumer, dphiDenom;/* dphi(wedge) = 2pi*N/D */
+  int mkaddrBogusValue;
+
+};
