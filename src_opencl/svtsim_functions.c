@@ -588,9 +588,9 @@ int svtsim_fconread(tf_arrays_t tf, struct extra_data *edata_dev)
       FILE *fp = 0;
       fp = fopen(fcf[k],"r");
       //fp = blobopen(fcf[k], "r");
-#ifdef DEBUG_READFCON
+      //#ifdef DEBUG_READFCON
       printf("fconread: opening %s for input, barrel %d\n", fcf[k],k);
-#endif
+      //#endif
       if (!fp) {
         fprintf(stderr, "svtsim: error opening %s for input\n", fcf[k]);
         return -1;

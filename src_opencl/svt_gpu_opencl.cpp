@@ -180,7 +180,7 @@ int main(int argc, char* argv[]) {
 
   if ( strcmp(where,"cpu") == 0 ) { // CPU
     printf("Start work on CPU..... \n");
-   /* 
+
     gettimeofday(&ptBegin, NULL);
     gf_fep_unpack(tf, k, data_send);
     gettimeofday(&ptEnd, NULL);
@@ -211,9 +211,12 @@ int main(int argc, char* argv[]) {
     gettimeofday(&ptEnd, NULL);
     printf("Time to CPU fit: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
-
+    /*
+    for(int ie=0; ie<NEVTS; ie++)
+      printf("Event %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d\n",ie,tf->evt_nroads[ie],tf->fep_nroads[ie],tf->fit_err_sum[ie],tf->fout_ntrks[ie],tf->fout_parity[ie]);
+    */
     printf(".... fits %d events! \n", tf->totEvts);
-*/
+
   } else { // GPU
 
     HELPERFUNCS::TemplateDataType<DATAWORD> dataType;
@@ -438,8 +441,8 @@ int main(int argc, char* argv[]) {
     std::cout << "device type " << CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) << std::endl;
 
 
-    printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
-	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
+    //printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
+    //	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
 
     
     cl::Buffer evt_CL(
@@ -520,29 +523,6 @@ int main(int argc, char* argv[]) {
 
     event.wait();
 
-    /*
-    err = queue.enqueueReadBuffer(
-				  fout_dev_CL,
-				  CL_TRUE,
-				  0,
-				  sizeof(fout_arrays),
-				  fout_dev);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
-
-    err = queue.finish();
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
-
-    for(int ie=0; ie<NEVTS; ie++){
-      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie]);
-    }
-    */
-    gettimeofday(&ptBegin, NULL);
-    gf_fep_unpack_evt(evt, k, data_send);
-    printf("Total events %d\n\n",evt->totEvts);
-    gettimeofday(&ptEnd, NULL);
-    printf("Time to CPU unpack: %.3f ms\n",
-          ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
-
     err = kernel_fep_comb.setArg(0, evt_CL);
     err = kernel_fep_comb.setArg(1, fep_dev_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
@@ -568,28 +548,34 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
     printf("We have prepared the buffers and are ready to go!\n");
 
-    printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
-	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
+    //printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
+    //	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
+
+    //gettimeofday(&ptBegin, NULL);
 
     gettimeofday(&ptBegin, NULL);
+    gf_fep_unpack_evt(evt, k, data_send); //printf("Total events %d\n\n",evt->totEvts);
+
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to CPU unpack: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
+
     err = queue.enqueueWriteBuffer(
 				   evt_CL,
 				   CL_TRUE,
 				   0,
 				   sizeof(evt_arrays),
 				   evt);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
-
-    /* 
-    err = queue.enqueueWriteBuffer(
-				  edata_dev_CL,
-				  CL_TRUE,
-				  0,
-				  sizeof(extra_data),
-				  edata_dev);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
-    */
+    //CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
    
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to GPU copy: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
+
     err = queue.enqueueNDRangeKernel(
 				     kernel_fep_comb,
 				     cl::NullRange,
@@ -597,10 +583,16 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXROAD),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_comb)");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_comb)");
 
-    event.wait();
+    // event.wait();
 
+
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to find combinations: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_fep_set,
@@ -609,13 +601,19 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,1),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_set)");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_set)");
 
-    event.wait();
+    //event.wait();
 
-    err = queue.finish();
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish1()");
+    //err = queue.finish();
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish1()");
         
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to setup fep arrays: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
+
     err = queue.enqueueNDRangeKernel(
 				     kernel_kFit,
 				     cl::NullRange,
@@ -623,9 +621,15 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,NFITTER),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(kFit)");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(kFit)");
 
-    event.wait();
+    //event.wait();
+
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to do fit: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_fit_format,
@@ -634,9 +638,15 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,MAXCOMB5H),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fit_format)");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fit_format)");
 
-    event.wait();
+    //event.wait();
+
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to format fit: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_comparator,
@@ -645,9 +655,15 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(MAXCOMB,1),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(comparator)");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(comparator)");
 
-    event.wait();
+    //event.wait();
+
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to do comparator: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_compute_eeword,
@@ -656,13 +672,19 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(256),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(compute_eeword)");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(compute_eeword)");
 
-    event.wait();
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to do ee word computation: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
-    printf("Error was ... %d\n",err);
-    err = queue.finish();
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
+    gettimeofday(&ptBegin, NULL);
+
+    //event.wait();
+
+    //printf("Error was ... %d\n",err);
+    //err = queue.finish();
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
 
     err = queue.enqueueReadBuffer(
 				  fep_dev_CL,
@@ -670,7 +692,7 @@ int main(int argc, char* argv[]) {
 				  0,
 				  sizeof(fep_arrays),
 				  fep_dev);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
 
     
     err = queue.enqueueReadBuffer(
@@ -679,7 +701,7 @@ int main(int argc, char* argv[]) {
 				  0,
 				  sizeof(fit_arrays),
 				  fit_dev);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    //CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
 
     err = queue.enqueueReadBuffer(
 				  fout_dev_CL,
@@ -687,10 +709,16 @@ int main(int argc, char* argv[]) {
 				  0,
 				  sizeof(fout_arrays),
 				  fout_dev);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    //CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+
+    gettimeofday(&ptEnd, NULL);
+    printf("Time to copy back: %.3f ms\n",
+	   ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+
+    gettimeofday(&ptBegin, NULL);
 
     err = queue.finish();
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
+    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
 
     //printf("We made it here (1)...\n");
     //printf("fep_dev = %p\n", fep_dev);
@@ -707,11 +735,11 @@ int main(int argc, char* argv[]) {
     //		     rdtscl(start);
     */
     gettimeofday(&ptEnd, NULL);
-    printf("Time to do combinations, OpenCL: %.3f ms\n",
+    printf("Time to do everything, OpenCL: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
 
     for(int ie=0; ie<NEVTS; ie++){
-      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie],fout_dev->fout_parity[ie]);
+      //printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie],fout_dev->fout_parity[ie]);
       /*
       for(int ir=0; ir<MAXROAD; ir++){
 	if(fep_dev->fep_ncmb[ie][ir]!=0)
