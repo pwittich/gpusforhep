@@ -2,6 +2,7 @@
 \usepackage{graphicx}
 \usepackage{subfigure}
 \usepackage{url}
+\usepackage{xspace}
 \usepackage{iopams}
 \usepackage[pdftex,
       colorlinks=true,
@@ -11,6 +12,8 @@
       pagebackref,
       pdfpagemode=UseNone,
       bookmarksopen=true]{hyperref}
+
+\providecommand{\fixme}[1]{\xspace{\sffamily{[\bfseries{}FIXME:} #1]}}
 
 
 \begin{document}
@@ -51,7 +54,7 @@
   the modern Infiniband data transfer technology with direct access to
   GPU memory allowed by NVIDIA GPUDirect utilities.  We now have
   expanded our latency studies to include other multi-core systems
-  (Intel Xeon Phi in addition to NVIDIA GPUs). We also discuss the
+  (Intel Xeon Phi/MIC in addition to NVIDIA GPUs). We also discuss the
   implementation of a scaled-up version of the algorithm used at CDF
   for online track reconstruction - the SVT algorithm - as a realistic
   test-case for low-latency trigger systems using new computing
@@ -81,20 +84,21 @@ Units (GPUs) are of particular interest for online selections given
 their impressive computing power (the latest NVIDIA~\cite{bib_nvidia}
 GPU architecture, Kepler, exceeds Teraflop computing power); moreover,
 high-level programming architectures based on C/C++ such as
-\textsc{cuda} and \textsc{opencl} make these devices more accessible
-to the general user.  
-The ultimate goal of this study is to investigate the strengths and weaknesses
-of GPUs when applied in a low latency environment, with particular
+\textsc{cuda}~\cite{bib_cuda} and \textsc{opencl}~\cite{bib_opencl}
+make these devices more accessible to the general user.  The ultimate
+goal of this study is to investigate the strengths and weaknesses of
+GPUs when applied in a low latency environment, with particular
 emphasis on the data transfer latency to/from the GPU and the
 algorithm latency for processing on the GPU in a manner similar to a
 typical HEP trigger application.
 
 We showed initial studies on GPU performance in low-latency
-environments ($\sim$100\,$\mu$s) in a previous paper~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies measuring the
-timing performance of different GPU cards in different data I/O
-environments. The algorithm run on the GPU is a complete version of
-the fast track fitting algorithm of the Silicon Vertex Tracker (SVT)
-system at CDF~\cite{SVT1}. 
+environments ($\sim 100~\mu$s) in a previous
+paper~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies
+measuring the timing performance of different GPU cards in different
+data I/O environments. The algorithm run on the GPU is a complete
+version of the fast track fitting algorithm of the Silicon Vertex
+Tracker (SVT) system at CDF~\cite{SVT1}.
 %We also compare the performance of GPU
 %cards from different manufacturers (AMD vs NVIDIA) and different
 %computing environments (\textsc{cuda} and \textsc{opencl}) on the same
@@ -102,18 +106,18 @@ system at CDF~\cite{SVT1}.
 One of the goals of the studies is to explore using a concrete
 algorithm what gains one can achieve with varying degrees of changes
 to the existing algorithm. Starting with a serial algorithm
-implemented on a CPU, we test an \textit{embarrassingly parallel} algorithm
-on the Intel MIC environment. In this case each event is handled
-independently by a core on the accelerator, and the parallelization is
-achieved with only minor changes to the legacy code and is only
-possible in the Intel MIC environment. Next we consider an algorithm
-where we unroll three internal nested loops and run these in parallel
-on a GPU, using the \textsc{cuda}~\ref{bib_cuda} environment. This second 
-approach is programmatically more complicated and less trivial to implement. In
-neither case have we re-thought the basic algorithms or the data
-structures used. To achieve optimal performance, these steps would
-have to be taken.  As one might expect, the improvement from the first
-approach is rather modest, and the second approach shows larger
+implemented on a CPU, we test an \textit{embarrassingly parallel}
+algorithm on the Intel MIC environment. In this case each event is
+handled independently by a core on the accelerator, and the
+parallelization is achieved with only minor changes to the legacy code
+and is only possible in the Intel MIC environment. Next we consider an
+algorithm where we unroll three internal nested loops and run these in
+parallel on a GPU, using the \textsc{cuda} environment. This second
+approach is programmatically more complicated and less trivial to
+implement. In neither case have we re-thought the basic algorithms or
+the data structures used. To achieve optimal performance, these steps
+would have to be taken.  As one might expect, the improvement from the
+first approach is rather modest, and the second approach shows larger
 performance gains.
 
 \section{SVT track fitting algorithm}
@@ -139,24 +143,24 @@ fitted track by using simple operations such as memory lookup and
 integer addition and multiplication.
 
 We ported the track fitting part to parallel devices, as it is well suited to 
-be parallelized. 
+parallelization. 
 
 \subsection{Code implementation}
-The starting point of of our studies is the SVT track fitting simulation code, 
-written in C language. SVT track fitting is divided into three main functions: 
-first the unpacking of input data and filling of all the necessary arrays, 
-followed by the computation of all possible combinations of hits in each road 
-and finally the fit on each combination. Three main loops are 
-present - on events, roads and hit combinations. 
-To be run on GPUs, the code has been ported to \textsc{cuda}: each step - 
-unpack, combine and track fit - is performed by a specific kernel;
-the three nested loops are unrolled so that each GPU thread processes a 
-single combination of hits. 
-To run on MIC, we adopted the so-called \textit{embarrassingly parallel} 
-approach and used pragma OpenMP for statements to unroll the external loop 
-on the events, so that each core processes a single event: the porting 
-requires much less effort compared to CUDA, but the level of parallelism is 
-limited.
+The starting point of of our studies is the SVT track fitting
+simulation code, written in the \textsc{c} language. SVT track fitting
+is divided into three main functions: the unpacking of input data and
+filling of all the necessary arrays, followed by the computation of
+all possible combinations of hits in each road and finally the fit of
+each combination. Three main loops are present - on events, roads and
+hit combinations.  To be run on GPUs, the code has been ported to
+\textsc{cuda}: each step - unpack, combine and track fit - is
+performed by a specific kernel; the three nested loops are unrolled so
+that each GPU thread processes a single combination of hits.  To run
+on MIC, we adopted the so-called \textit{embarrassingly parallel}
+approach and used \textsc{pragma OpenMP} for statements to unroll the external
+loop on the events, so that each core processes a single event: the
+porting requires much less effort compared to \textsc{cuda}, but the level of
+parallelism is limited.
 
 \section{Experimental setup and data flow}
 The many-core devices used in this study are listed in Table~\ref{tab_hwspecs}.
@@ -189,11 +193,10 @@ Two nodes of this cluster are used to measure data transfer latency,
 one acting as a transmitter and the
 other as a receiver.  Data are transferred from the transmitter to the 
 receiver, processed on the GPU and sent back to the receiver (see
-Fig.~\ref{fig_data_flow}).  
+Fig.~\ref{fig:data_flow}).  
 The latency for a complete loop is measured on the transmitter using 
 standard C libraries.
-
-\begin{figure}[!h]
+\begin{figure}[tbph]
 \centering
 \includegraphics[width=3.5in]{figures/SetUp-general}
 \caption{Data flow. Data is sent from the transmitter PC to the
@@ -202,9 +205,8 @@ standard C libraries.
   detector as the source of the data and as an upstream trigger
   processor as the data's ultimate sink. The receiver PC plays the
   role of a component in the trigger system. }
-\label{fig_data_flow}
+\label{fig:data_flow}
 \end{figure}
-
 In this setup, the transmitter can represent the detector, as
 the source of the data, or an upstream trigger processor, as
 the ultimate sink of the data, while the the receiver is the
@@ -249,10 +251,12 @@ parallel architectures millions of fits have to be performed in parallel.
 
  \begin{figure}[!tbp]
     \centering
-    \includegraphics[width=0.9\linewidth]{figures/TimeComp_MIC.pdf}
-     \caption{Algorithm-only comparison for timing as a function of the
-      number of track fits. We compare timing on CPUs (serial), Xeon Phi
-      (embarrassingly parallel), and GPUs (fully parallel). }
+    \includegraphics[width=0.9\linewidth]{figures/TimeComp_MIC}
+    \caption{Algorithm-only comparison for timing as a function of the
+      number of track fits. We compare timing on CPUs (serial), Intel
+      MIC (embarrassingly parallel), and GPUs (fully parallel), in
+      blue, greed, and red, respectively. The GPUs exhibit the best
+      performance due to the full parallelization. }
     \label{fig:algo_only_timing}
   \end{figure}
  
@@ -260,14 +264,19 @@ parallel architectures millions of fits have to be performed in parallel.
     \centering
     \includegraphics[width=0.9\linewidth]{figures/TimeCompZoom_MIC.png} 
     \caption{Algorithm-only comparison for timing as a function of the
-      number of track fits: zoom in the low number of fits region.}
+      number of track fits: zoom in the low number of fits region. At
+      low number of fits, the CPU performs better, due to start-up
+      costs associated with data transfers.}
     \label{fig:algo_only_timing_zoom}
   \end{figure}
  
  \begin{figure}[!tbp]
    \centering
-   \includegraphics[width=0.9\linewidth]{figures/Speedup_MIC.pdf}
-   \caption{Speed-up with respect to a standard CPU (Intel Xeon E5630) .}
+   \includegraphics[width=0.9\linewidth]{figures/Speedup_MIC}
+   \caption{Speed-up with respect to a standard CPU (Intel Xeon
+     E5630). The speed-ups plateau after about one million fits for
+     the GPUs (in red) while the Intel MIC still shows a small slope
+     beyond that point. \fixme{is this true}}
    \label{fig:algo_only_speedup}
  \end{figure}
 
@@ -281,59 +290,56 @@ are constant over 500 input events, where computing resources are saturated.
 Differently from MIC, the fit stage takes most of the time on the GPU: this 
 could be explained with the intense memory access intrinsic in 
 this part of the algorithm.  
-
-
-\begin{figure*}[!t]
+\begin{figure*}[tbp]
 \centering
-%\subfigure[]
-%{\label{fig:breakdown_CPU}
-%\includegraphics[width=0.4\linewidth]{figures/Cpui7_perc.pdf}}
-%\hspace{1mm}
 \subfigure[]
 {\label{fig:breakdown_MIC}
-\includegraphics[width=0.45\linewidth]{figures/Mic5_perc_nk.pdf}}
+\includegraphics[width=0.45\linewidth]{figures/Mic5_perc_nk}}
 \subfigure[]
 {\label{fig:breakdown_GPU}
-\includegraphics[width=0.45\linewidth]{figures/titan_perc.pdf}}
-\caption{Breakdown of computing time.}
+\includegraphics[width=0.45\linewidth]{figures/titan_perc}}
+\caption{Breakdown of computing time for MIC (a) and the GTX Titan GPU
+  (b). \fixme{we need a legend for these plots. Also can we make them
+    the same size and aspect ratio.}}
+\label{fig:breakdown}
 \end{figure*}
 
 \subsection{Data transfer}
-The experimental setup described in Fig.~\ref{fig_data_flow} allows us to 
+The experimental setup described in Fig.~\ref{fig:data_flow} allows us to 
 test different data transfer  strategies to the GPU. The standard data transfer 
 strategy is via the system memory, where the 
 PCIe adapter card and the GPU allocate \emph{separate} buffers on the
-system memory for the copy (as shown in Fig.~\ref{fig_standardDT}).
+system memory for the copy (as shown in Fig.~\ref{fig:standardDT}).
 This is inefficient, as the data are copied twice in the 
 system memory before being transferred to the GPU/PCIe card. 
 Data may also be transferred using Direct Memory Access (DMA, 
-GPUDirect\cite{bib_GPUDirect}) to the CPU memory:
+GPUDirect~\cite{bib_GPUDirect}) to the CPU memory:
 the PCIe card and the GPU share the \textit{same} buffer on the CPU memory; as 
 a result the data are copied only once in the CPU memory 
-(Fig.~\ref{fig_GPUDirectV1}). 
+(Fig.~\ref{fig:GPUDirectV1}). 
 With our experimental setup two additional copy strategies can be tested
 which are the results of different levels of 
 optimization of the GPUDirect protocol:
 \begin{itemize}
-\item CUDA-Aware MPI, where the copy latency is further reduced
+\item \textsc{cuda}-Aware MPI, where the copy latency is further reduced
 by automatically allocating the buffer on the CPU memory;
 \item peer-to-peer (P2P) strategy, when data are transferred 
 directly to the GPU, without any  
-intermediate copy to the CPU (Fig.~\ref{fig_GPUDirectV2}).
+intermediate copy to the CPU (Fig.~\ref{fig:GPUDirectV2}).
 \end{itemize}
 
 
 \begin{figure*}[!t]
 \centering
 \subfigure[]
-{\label{fig_standardDT}
+{\label{fig:standardDT}
 \includegraphics[width=0.3\linewidth]{figures/noGPUDirect}}
 \hspace{1mm}
 \subfigure[]
-{\label{fig_GPUDirectV1}
+{\label{fig:GPUDirectV1}
 \includegraphics[width=0.3\linewidth]{figures/GPUDirect}}
 \subfigure[]
-{\label{fig_GPUDirectV2}
+{\label{fig:GPUDirectV2}
 \includegraphics[width=0.3\linewidth]{figures/GPUDirect-APE}}
 \caption{Standard data transfer (a), via GPUDirect (b) and via
   GPUDirect with P2P support (c). In (a), two buffers are required in
@@ -344,28 +350,48 @@ intermediate copy to the CPU (Fig.~\ref{fig_GPUDirectV2}).
 
 \begin{figure}[tbp]
   \centering
-  \includegraphics[width=0.9\linewidth]{figures/datatransfer.pdf}
-  \caption{Total latency (data transfer, copy to/from the GPU and data processing on the GPU) as a function of data buffer sizes, for three different levels of optimization of GPUDirect: v1.0, CUDA-aware MPI and peer-to-peer. The smallest transferred data packed is 600 kB.}
+  \includegraphics[width=0.9\linewidth]{figures/datatransfer}
+  \caption{Total latency (data transfer, copy to/from the GPU and data
+    processing on the GPU) as a function of data buffer sizes, for
+    three different levels of optimization of GPUDirect: v1.0,
+    \textsc{cuda}-aware MPI and peer-to-peer. The smallest transferred
+    data packed is 600 kB. \fixme{Below it says 600 kb is the place where
+    P2P gets worse?}}
   \label{fig:xferlatency}
 \end{figure}
 
-In Fig.~\ref{fig:xferlatency} we show the total latency (data transfer, copy to/from the GPU and data processing on the GPU) as a function of data packet size when data are transferred using GPUDirect v1.0,
-CUDA-aware MPI and P2P. For the packet sizes over 600 kB CUDA-aware MPI gives the best performance.
+In Fig.~\ref{fig:xferlatency} we show the total latency (data
+transfer, copy to/from the GPU and data processing on the GPU) as a
+function of data packet size when data are transferred using GPUDirect
+v1.0, \textsc{cuda}-aware MPI and P2P. For the packet sizes over 600
+kB \textsc{cuda}-aware MPI gives the best performance. For smaller
+packet sizes, P2P gives better performance \fixme{do we have this plot?}.
 
 
 \begin{figure}[tbp]
   \centering
-  \includegraphics[width=0.9\linewidth]{figures/cudaware.pdf}
-  \caption{data transfer latencies}
+  \includegraphics[width=0.9\linewidth]{figures/cudaware}
+  \caption{Time per fit, in msec. The two curves show total timing
+    with and without calculations performed on the GPU, thereby
+    showing the considerable time spent in data transfer. About
+    20-25\% of the time is spent in data transfer.}
   \label{fig:transferOnly}
 \end{figure}
 
-The data transfer latency accounts for a significant part if the total latency, 
-as can be seen in Fig.~\ref{fig:transferOnly}: about 20-25\% of total latency  is due to moving the data to and from the GPU.
+The data transfer latency accounts for a significant part of the total
+latency, as can be seen in Fig.~\ref{fig:transferOnly}: about 20-25\%
+of total latency is due to moving the data to and from the GPU.
 
 
 \section{Conclusions}
-
+We have examined a staged approach to using accelerator cards in a
+hadron collider trigger application. We have demonstrated that in this
+application, significant gains can be achieved with the
+`embarrassingly parallel' approach on an Intel MIC
+architecture, with the smallest amount of required changes to an
+existing serial code base. However, better performance is achieved
+with GPUs and a more complete event-level parallelization using
+\textsc{cuda}. 
 
 %% gives unnumbered ack in CHEP style
 \ack
@@ -381,16 +407,6 @@ Istituto Nazionale di Fisica Nucleare.
 
 \bibliography{gpu}
 
-
-% \bibitem{bib_cuda} \url{http://www.nvidia.com/object/cuda_home_new.html}
-
-% \bibitem{bib_OpenCL} \url{http://www.khronos.org/opencl/}
-
-% %\bibitem{bib_GPU_TIPP2011} Physics Procedia, Volume 37, 2012, 1965-1972.
-% \bibitem{bib_Apenet} R.~Ammendola \textit{et al.}, \emph{APEnet+: a 3D toroidal network enabling Petaflops scale Lattice QCD simulations on commodity clusters}  PoS(Lattice 2010)022.
-
-
-% \bibitem{bib_GPUDirect} \url{https://developer.nvidia.com/gpudirect}
 
 
  
