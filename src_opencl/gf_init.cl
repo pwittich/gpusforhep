@@ -37,3 +37,4 @@ __kernel void init_arrays_GPU (global struct fout_arrays* fout_dev, global struc
   fout_dev->fout_svterr[ie] = 0;
     
 }
+

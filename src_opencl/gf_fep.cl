@@ -34,6 +34,76 @@ __constant unsigned long gf_maskdata3_GPU[] = {
   0x01ffffffffffUL, 0x03ffffffffffUL, 0x07ffffffffffUL, 0x0fffffffffffUL,
   0x1fffffffffffUL, 0x3fffffffffffUL, 0x7fffffffffffUL, 0xffffffffffffUL 
 };
+/*
+__global__ void k_word_decode(int N, global unsigned int *words, global int *ids, global int *out1, global int *out2, global int *out3) {
+
+    //parallel word_decode kernel.
+    //each word is decoded and layer (id) and output values are set.
+    //we only use 3 output arrays since depending on the layer,
+    //we only need 3 different values. this saves allocating/copying empty arrays
+    //format (out1, out2, out3):
+      //id <  XFT_LYR: zid, lcl, hit
+      //id == XFT_LYR: crv, crv_sign, phi
+      //id == IP_LYR: sector, amroad, 0
+      //id == EE_LYR: ee_word
+  //
+
+  long idx = get_group_id(0)+get_local_id(0);
+
+  if (idx > N) return;
+
+  int word = words[idx];
+  int ee, ep, lyr;
+
+  lyr = -999; // Any invalid numbers != 0-7 
+
+  out1[idx] = 0;
+  out2[idx] = 0;
+  out3[idx] = 0;
+
+  if (word > gf_maskdata_GPU[SVT_WORD_WIDTH]) {
+    ids[idx] = lyr;
+    return;
+  }
+
+  // check if this is a EP or EE word 
+  ee = (word >> SVT_EE_BIT)  & gf_maskdata_GPU[1];
+  ep = (word >> SVT_EP_BIT)  & gf_maskdata_GPU[1];
+
+  int prev_word = (idx==0) ? 0 : words[idx-1];
+  int p_ee = (prev_word >> SVT_EE_BIT) & gf_maskdata_GPU[1];
+  int p_ep = (prev_word >> SVT_EP_BIT) & gf_maskdata_GPU[1];
+
+  // check if this is the second XFT word
+//  bool xft = ((prev_word >> SVT_LYR_LSB) & gf_mask_GPU(SVT_LYR_WIDTH)) == XFT_LYR ? 1 : 0;
+  bool xft = !p_ee && !p_ep && ((prev_word >> SVT_LYR_LSB) & gf_maskdata_GPU[SVT_LYR_WIDTH]) == XFT_LYR ? 1 : 0;
+
+
+  if (ee && ep) { // End of Event word 
+    out1[idx] = word; // ee_word
+    lyr = EE_LYR;
+  } else if (ee) { // only EE bit ON is error condition 
+    lyr = EE_LYR; // We have to check 
+  } else if (ep) { // End of Packet word 
+    lyr = EP_LYR;
+    out1[idx] = 6; // sector
+    out2[idx] = word  & gf_maskdata_GPU[AMROAD_WORD_WIDTH]; // amroad
+  } else if (xft) { // Second XFT word 
+    out1[idx] = (word >> SVT_CRV_LSB)  & gf_maskdata_GPU[SVT_CRV_WIDTH]; // crv
+    out2[idx] = (word >> (SVT_CRV_LSB + SVT_CRV_WIDTH))  & gf_maskdata_GPU[1]; // crv_sign
+    out3[idx] = word & gf_maskdata_GPU[SVT_PHI_WIDTH]; // phi
+    lyr = XFT_LYR_2;
+  } else { // SVX hits or the first XFT word 
+    lyr = (word >> SVT_LYR_LSB)  & gf_maskdata_GPU[SVT_LYR_WIDTH];
+    if (lyr == XFT_LYRID) lyr = XFT_LYR; // probably don't need - stp
+    out1[idx] = (word >> SVT_Z_LSB)  & gf_maskdata_GPU[SVT_Z_WIDTH]; // zid
+    out2[idx] = (word >> SVT_LCLS_BIT) & gf_maskdata_GPU[1]; // lcl
+    out3[idx] = word & gf_maskdata_GPU[SVT_HIT_WIDTH]; // hit
+  }
+
+  ids[idx] = lyr;
+}
+*/
 
 __kernel void gf_fep_comb_GPU (global struct evt_arrays* evt_dev, global struct fep_arrays* fep_dev) {
 
