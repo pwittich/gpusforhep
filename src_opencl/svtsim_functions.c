@@ -476,6 +476,26 @@ svtsim_cable_t * svtsim_cable_new(void) {
  }
 
 
+  int
+ svtsim_whichFit_tf(tf_arrays_t tf, int zin, int layerMask, int lcMask)
+ {
+#ifdef DEBUG_SVT 
+   printf("in svtsim_whichFit: zin = %d, layerMask = %x, lcMask = %x\n", zin, layerMask, lcMask);
+#endif
+
+   int which0 = 0, which = 0;
+   if (zin<0 || zin>=SVTSIM_NBAR) zin = 0;
+   which0 = svtsim_whichFit_full(zin, layerMask, lcMask);
+   which = tf->whichFit[zin][which0];
+
+#ifdef DEBUG_SVT 
+   printf("in svtsim_whichFit: which0 = %d, which = %x\n", which0, which);
+#endif
+
+   return which;
+ }
+
+
 
   int
  svtsim_whichFit(struct extra_data* edata, int zin, int layerMask, int lcMask)
@@ -1855,7 +1875,7 @@ int gf_fep_unpack_evt(evt_arrays_t tf, int n_words_in, void* data_in) {
  
      iz = i&7, lcl = i>>3 & 0x1f, hit = i>>8 & 0x3f;
 
-     which = svtsim_whichFit(tf, iz, hit, lcl);
+     which = svtsim_whichFit_tf(tf, iz, hit, lcl);
      coeff = iz + which*6;  /* poor choice for illegal iz=6,7, but compatible */
      intcp = which;
 

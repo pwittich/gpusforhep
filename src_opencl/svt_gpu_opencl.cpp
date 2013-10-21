@@ -10,6 +10,7 @@
 #include <string>
 #include <fstream>
 #include <iterator>
+#include <stdio.h>
 
 typedef unsigned int	   DATAWORD; //e.g. UINT32 or float //NOTE: this must absolutely match the typedef in kernel!!!!
 
@@ -165,20 +166,25 @@ int main(int argc, char* argv[]) {
   struct fit_arrays *fit_dev = new fit_arrays;
   struct fout_arrays *fout_dev = new fout_arrays;
 
+
   svtsim_fconread(tf, edata_dev);
 
-  free(tf);
+  //free(tf);
 
   bool is_null=false;
+
   if(evt==NULL) is_null=true;
 
-  printf("Is evt_arrays ptr null? bool=%d",is_null);
+  printf("Is evt_arrays ptr null? bool=%d \n",is_null);
 
   //gf_init_evt(&evt);
 
   gettimeofday(&tBegin, NULL);
 
   if ( strcmp(where,"cpu") == 0 ) { // CPU
+    memcpy(tf->wedge, edata_dev->wedge, sizeof(edata_dev->wedge));
+    memcpy(tf->whichFit, edata_dev->whichFit, sizeof(edata_dev->whichFit));
+    memcpy(tf->lfitparfcon, edata_dev->lfitparfcon, sizeof(edata_dev->lfitparfcon));
     printf("Start work on CPU..... \n");
 
     gettimeofday(&ptBegin, NULL);
@@ -186,17 +192,17 @@ int main(int argc, char* argv[]) {
     gettimeofday(&ptEnd, NULL);
     printf("Time to CPU unpack: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
-
+/*
     for(int ie=0; ie<NEVTS; ie++){
       printf("\nEvent %d, nroads = %d",ie,tf->evt_nroads[ie]);
     }
-
+*/
     gettimeofday(&ptBegin, NULL);
     gf_fep_comb(tf);
     gettimeofday(&ptEnd, NULL);
     printf("Time to CPU comb: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
-
+/*
     for(int ie=0; ie<NEVTS; ie++){
       printf("\nEvent %d\n",ie);
       for(int ir=0; ir<MAXROAD; ir++){
@@ -204,18 +210,22 @@ int main(int argc, char* argv[]) {
 	  printf("\n\tRoad %d, ncomb = %d",ir,tf->fep_ncmb[ie][ir]);
       }
     }
-
+*/
     gettimeofday(&ptBegin, NULL);
     gf_fit(tf);
     gf_comparator(tf);
     gettimeofday(&ptEnd, NULL);
     printf("Time to CPU fit: %.3f ms\n",
           ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
-    /*
+/*    
     for(int ie=0; ie<NEVTS; ie++)
       printf("Event %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d\n",ie,tf->evt_nroads[ie],tf->fep_nroads[ie],tf->fit_err_sum[ie],tf->fout_ntrks[ie],tf->fout_parity[ie]);
-    */
+*/    
     printf(".... fits %d events! \n", tf->totEvts);
+
+    ow = tf->out->ndata;
+    memcpy(data_rec, tf->out->data, sizeof(int)*tf->out->ndata);
+
 
   } else { // GPU
 
