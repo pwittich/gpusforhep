@@ -44,23 +44,19 @@
 \ead{silvia.amerio@pd.infn.it}
 
 \begin{abstract}
-  In this paper we describe updates to a previous study of latencies
-  in GPU for potential trigger applications, where we measured the
-  latency to transfer data to/from the GPU, exploring the timing of
-  different I/O technologies on different GPU models.  Those studies,
-  where a simplified track fitting algorithm was parallelized and run
-  on a GPU, show that latencies of few tens of microseconds can be
-  achieved to transfer and process packets of 4 kB of data, combining
-  the modern Infiniband data transfer technology with direct access to
-  GPU memory allowed by NVIDIA GPUDirect utilities.  We now have
-  expanded our latency studies to include other multi-core systems
-  (Intel Xeon Phi/MIC in addition to NVIDIA GPUs). We also discuss the
-  implementation of a scaled-up version of the algorithm used at CDF
-  for online track reconstruction - the SVT algorithm - as a realistic
-  test-case for low-latency trigger systems using new computing
-  architectures for LHC experiment and examine the
+  Interest in parallel architectures applied to real time selections is 
+  growing in High Energy Physics (HEP) experiments. In this paper we describe
+  performance measurements of Graphic Processing Units (GPUs) and Intel Many
+  Integrated Core architecture (MIC) when applied to a typical HEP online task: 
+  the selection of events based on the trajectories of charged particles.
+  We use as benchmark a scaled-up version of the algorithm used at CDF 
+  experiment at Tevatron for online track reconstruction - the SVT algorithm - 
+as a realistic  test-case for low-latency trigger systems using new computing
+  architectures for LHC experiment. We examine the
   complexity/performance trade-off in porting existing serial
-  algorithms to many-core devices.
+  algorithms to many-core devices. Measurements of both data processing 
+  and data transfer latency are shown, considering different I/O strategies 
+  to/from the parallel devices. 
 \end{abstract}
 
 \section{Introduction}
@@ -80,34 +76,36 @@ based on farms of general purpose processors.  The possibility of also
 using commercial devices at a low trigger level is very appealing:
 they are subject to continuous performance improvements driven by the
 consumer market, are less expensive than dedicated hardware, and are
-easier to support.  Among the commercial devices, Graphic Processing
-Units (GPUs) are of particular interest for online selections given
-their impressive computing power (the latest NVIDIA~\cite{bib_nvidia}
-GPU architecture, Kepler, exceeds Teraflop computing power); moreover,
+easier to support.  Among the commercial devices, many-core architectures 
+such as Graphic Processing Units (GPUs)~\cite{bib_gpu} and Intel Many
+  Integrated Core (MIC)~\cite{bib_intelMIC} are of particular interest for 
+online 
+selections given their great computing power (the latest 
+\textsc{nvidia}~\cite{bib_nvidia} GPU architecture, Kepler, exceeds Teraflop 
+computing power); moreover,
 high-level programming architectures based on C/C++ such as
-\textsc{cuda}~\cite{bib_cuda} and \textsc{opencl}~\cite{bib_opencl}
-make these devices more accessible to the general user.  The ultimate
+\textsc{cuda}~\cite{bib_cuda}  and 
+\textsc{opencl}~\cite{bib_opencl} make these devices more accessible to 
+the general user.  The ultimate
 goal of this study is to investigate the strengths and weaknesses of
-GPUs when applied in a low latency environment, with particular
-emphasis on the data transfer latency to/from the GPU and the
-algorithm latency for processing on the GPU in a manner similar to a
+many-core devices when applied in a low latency environment, with particular
+emphasis on the data transfer latency to/from the device and the
+algorithm latency for processing on the device in a manner similar to a
 typical HEP trigger application, and to understand the cost/complexity
-ratio of porting legacy serial code to many-core devices..
+ratio of porting legacy serial code to many-core devices.
 
 We showed initial studies on GPU performance in low-latency
-environments ($\sim 100~\mu$s) in a previous
-paper~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies
-measuring the timing performance of different GPU cards in different
-data I/O environments. The algorithm run on the GPU is a complete
+environments ($\sim 100~\mu$s) in  previous
+papers~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies
+to include other many-core systems (Intel MIC in addition to GPUs).
+The algorithm run on the parallel architecture is a complete
 version of the fast track fitting algorithm of the Silicon Vertex
 Tracker (SVT) system at CDF~\cite{SVT1}.
 %We also compare the performance of GPU
 %cards from different manufacturers (AMD vs NVIDIA) and different
 %computing environments (\textsc{cuda} and \textsc{opencl}) on the same
 %card. 
-One of the goals of the studies is to explore using a concrete
-algorithm what gains one can achieve with varying degrees of changes
-to the existing algorithm. Starting with a serial algorithm
+Starting with a serial algorithm
 implemented on a CPU, we test an \textit{embarrassingly parallel}
 algorithm on the Intel MIC environment. In this case each event is
 handled independently by a core on the accelerator, and the
@@ -120,7 +118,8 @@ implement. In neither case have we re-thought the basic algorithms or
 the data structures used. To achieve optimal performance, these steps
 would have to be taken.  As one might expect, the improvement from the
 first approach is rather modest, and the second approach shows larger
-performance gains.
+performance gains. For GPUs, we also test different strategies to transfer
+ data to/from the device.
 
 \section{SVT track fitting algorithm}
 The Silicon Vertex Trigger (SVT)~\cite{SVT1,SVT2} is a 
@@ -186,7 +185,7 @@ class GPU (GTX) and ones optimized for scientific computing
   \end{tabular}
   \caption{Capabilities of the many-core devices used in this study,
     according to the manufacturer's specifications. The first three
-    are GPUs and the final is an Intel Xeon Phi.}
+    are \textsc{nvidia} GPUs and the final is an Intel Xeon Phi.}
   \label{tab_hwspecs}
 \end{table}
 
@@ -281,9 +280,11 @@ parallel architectures millions of fits have to be performed in parallel.
    \centering
    \includegraphics[width=0.9\linewidth]{figures/Speedup_MIC}
    \caption{Speed-up with respect to a standard CPU (Intel Xeon
-     E5630). The speed-ups plateau after about one million fits for
-     the GPUs (in red) while the Intel MIC still shows a small slope
-     beyond that point. \fixme{is this true}}
+     E5630). The speed-ups plateau after about two million fits.
+     %for
+     %the GPUs (in red) while the Intel MIC still shows a small slope
+     %beyond that point. 
+     \fixme{Silvia: removed the comment about the different GPU/MI beahviour. These are the speedup values for the MIC: 0.07, 0.49, 1.79, 2.25, 2.32, 3.35, 4.38,4.74, 5.36, 5.16, 5.34 }}
    \label{fig:algo_only_speedup}
  \end{figure}
 
@@ -308,9 +309,7 @@ this part of the algorithm.
 \caption{Breakdown of computing time for MIC (a) and the GTX Titan GPU
   (b). Red corresponds to unpacking, green corresponds to generating
   hit combinations, blue is the linearized track fit, and magenta
-  corresponds to offloading (MIC only)\fixme{we need a legend for
-    these plots, and it doesn't work in B\&W. Also can we make them
-    the same size and aspect ratio.} For MIC, combinations and fitting
+  corresponds to offloading (MIC only). For MIC, combinations and fitting
   take the same amount of time for large number of events. For GPU,
   fitting dominates. }
 \label{fig:breakdown}
@@ -376,8 +375,7 @@ In Fig.~\ref{fig:xferlatency} we show the total latency (data
 transfer, copy to/from the GPU and data processing on the GPU) as a
 function of data packet size when data are transferred using GPUDirect
 v1.0, \textsc{cuda}-aware MPI and P2P. For the packet sizes over 600
-kB \textsc{cuda}-aware MPI gives the best performance. For smaller
-packet sizes, P2P gives better performance \fixme{do we have this plot?}.
+kB \textsc{cuda}-aware MPI gives the best performance (see also~\cite{NSS2012} and~\cite{bib_mvapich})  \fixme{do we have this plot? Silvia: no, and will not have in time for the proceedings... but we can put a reference, see slides after page 47.}.
 
 
 \begin{figure}[tbp]
