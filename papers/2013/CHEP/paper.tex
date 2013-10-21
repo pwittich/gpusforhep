@@ -1,4 +1,4 @@
-\documentclass[letterpaper]{jpconf}
+\documentclass[a4]{jpconf}
 \usepackage{graphicx}
 \usepackage{subfigure}
 \usepackage{url}
@@ -58,8 +58,9 @@
   implementation of a scaled-up version of the algorithm used at CDF
   for online track reconstruction - the SVT algorithm - as a realistic
   test-case for low-latency trigger systems using new computing
-  architectures for LHC experiment.
-
+  architectures for LHC experiment and examine the
+  complexity/performance trade-off in porting existing serial
+  algorithms to many-core devices.
 \end{abstract}
 
 \section{Introduction}
@@ -90,7 +91,8 @@ goal of this study is to investigate the strengths and weaknesses of
 GPUs when applied in a low latency environment, with particular
 emphasis on the data transfer latency to/from the GPU and the
 algorithm latency for processing on the GPU in a manner similar to a
-typical HEP trigger application.
+typical HEP trigger application, and to understand the cost/complexity
+ratio of porting legacy serial code to many-core devices..
 
 We showed initial studies on GPU performance in low-latency
 environments ($\sim 100~\mu$s) in a previous
@@ -142,8 +144,8 @@ the transverse momentum $p_\mathrm{T}$ , and the $\chi^2$ of the
 fitted track by using simple operations such as memory lookup and 
 integer addition and multiplication.
 
-We ported the track fitting part to parallel devices, as it is well suited to 
-parallelization. 
+We ported the track fitting as it is well suited to parallelization -
+each track can be handled independently.
 
 \subsection{Code implementation}
 The starting point of of our studies is the SVT track fitting
@@ -163,7 +165,10 @@ porting requires much less effort compared to \textsc{cuda}, but the level of
 parallelism is limited.
 
 \section{Experimental setup and data flow}
-The many-core devices used in this study are listed in Table~\ref{tab_hwspecs}.
+The many-core devices used in this study are listed in
+Table~\ref{tab_hwspecs}. The GPUs include a less expensive gaming
+class GPU (GTX) and ones optimized for scientific computing
+(Tesla). The MIC corresponds to a Xeon Phi introduced in November 2012.
 
 \begin{table}[!t]
   \centering
@@ -179,7 +184,9 @@ The many-core devices used in this study are listed in Table~\ref{tab_hwspecs}.
     Clock speed (GHz) & 1.15 & 0.706 & 0.837 & 1.053 \\
     \hline
   \end{tabular}
-  \caption{Capabilities of the many-core devices used in this study, according to the manufacturer's specifications.}
+  \caption{Capabilities of the many-core devices used in this study,
+    according to the manufacturer's specifications. The first three
+    are GPUs and the final is an Intel Xeon Phi.}
   \label{tab_hwspecs}
 \end{table}
 
@@ -287,8 +294,8 @@ various parts of the algorithm for the embarrassingly parallel algorithm
 (on Intel MIC) and the parallel algorithm (on NVIDIA Titan GPU), as a 
 function of the number of fits. On both accelerator cards the fractional times
 are constant over 500 input events, where computing resources are saturated. 
-Differently from MIC, the fit stage takes most of the time on the GPU: this 
-could be explained with the intense memory access intrinsic in 
+Unlike the MIC, the fit stage takes most of the time on the GPU: this 
+could be caused by the intense memory access frequency intrinsic to
 this part of the algorithm.  
 \begin{figure*}[tbp]
 \centering
@@ -299,8 +306,13 @@ this part of the algorithm.
 {\label{fig:breakdown_GPU}
 \includegraphics[width=0.45\linewidth]{figures/titan_perc}}
 \caption{Breakdown of computing time for MIC (a) and the GTX Titan GPU
-  (b). \fixme{we need a legend for these plots. Also can we make them
-    the same size and aspect ratio.}}
+  (b). Red corresponds to unpacking, green corresponds to generating
+  hit combinations, blue is the linearized track fit, and magenta
+  corresponds to offloading (MIC only)\fixme{we need a legend for
+    these plots, and it doesn't work in B\&W. Also can we make them
+    the same size and aspect ratio.} For MIC, combinations and fitting
+  take the same amount of time for large number of events. For GPU,
+  fitting dominates. }
 \label{fig:breakdown}
 \end{figure*}
 
