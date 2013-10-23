@@ -1056,8 +1056,10 @@ __kernel void gf_compute_eeword_GPU( global struct fep_arrays* fep_dev, global s
 				     global struct fout_arrays* fout_dev) {
 
   int   eoe_err;
-  int   ie = get_group_id(0) * get_local_size(0) + get_local_id(0);
+  //int   ie = get_group_id(0) * get_local_size(0) + get_local_id(0);
+  int   ie = get_group_id(0);
 
+  
     fout_dev->fout_err_sum[ie] = (fep_dev->fep_err_sum[ie] | fit_dev->fit_err_sum[ie]);
     gf_formatter_err_GPU(fout_dev->fout_err_sum[ie], GF_ERRMASK_CDF,
                       GF_ERRMASK_SVT, GF_ERRMASK_EOE,
