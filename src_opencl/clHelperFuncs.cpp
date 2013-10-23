@@ -21,6 +21,7 @@ void CL_HELPERFUNCS::getPlatformsAndDevices(cl::vector< cl::Platform > *platform
 	cout << __FANCY__ << "Num of Platforms: " << (*platformList).size() << endl;
 
 	string platformVendor;
+	string platformVersion;
 	cl_device_type deviceType;
 	GPU_device_index = -1; GPU_platform_index = -1;
 
@@ -30,6 +31,8 @@ void CL_HELPERFUNCS::getPlatformsAndDevices(cl::vector< cl::Platform > *platform
 		(*platformList)[i].getInfo((cl_platform_info)CL_PLATFORM_VENDOR, &platformVendor);
 		cout << __FANCY__ << "Platform " << i << " is by: " << platformVendor << "\n";
 
+		(*platformList)[i].getInfo((cl_platform_info)CL_PLATFORM_VERSION, &platformVersion);
+		cout << __FANCY__ << "Platform " << i << " version is: " << platformVersion << "\n";
 
 		(*deviceList).push_back(new cl::vector< cl::Device >());
 

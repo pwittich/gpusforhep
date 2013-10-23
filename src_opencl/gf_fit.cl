@@ -159,11 +159,11 @@ int  svtsim_get_gfMkAddr_GPU(global struct extra_data* edata_dev, int *d, int nd
 		     unsigned long intcp, global int *result, global int *err) {
 
   unsigned long temp = 0;
-  //int i = 0;
+  int i = 0;
   
   *result = 0;
   *err = 0;
-  /*
+  
   for (i = 0; i < SVTNHITS; i++) {
     if (i < NSVX_PLANE) {
       temp += hit[i] * coeff[i];
@@ -178,16 +178,16 @@ int  svtsim_get_gfMkAddr_GPU(global struct extra_data* edata_dev, int *d, int nd
       }
     }
   }
-  */
-  *result = temp + intcp;
-  /*
+ 
+  *result += temp + intcp;
+  
   *result = *result<0 ? -((-*result)>>17) : *result>>17;
   
   if (*result > 0)
     *result &= gf_maskdata3_GPU[FIT_DWIDTH];
   else
     *result = -(abs(*result)&gf_maskdata3_GPU[FIT_DWIDTH]);
-    */
+   
   return SVTSIM_GF_OK;
 }
 
@@ -976,9 +976,11 @@ __kernel void kFit(global struct fep_arrays* fep_dev, global struct extra_data* 
 
       } /* end for(ih = 0; ih < NSVX_PLANE; ih++) */
     } /* end if(tf->fep_hitmap[ie][ir][ic] != 0x1f) */
+
+
   } /* enf if on indexes */
 
-  
+
 }
 
 __kernel void gf_comparator_GPU(global struct fep_arrays* fep_dev, global struct evt_arrays* evt_dev, 

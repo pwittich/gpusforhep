@@ -511,7 +511,7 @@ int main(int argc, char* argv[]) {
 				   0,
 				   sizeof(extra_data),
 				   edata_dev);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueWriteBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueWriteBuffer(edata)");
 
     event.wait();
 
@@ -859,7 +859,7 @@ int main(int argc, char* argv[]) {
 				   0,
 				   sizeof(evt_arrays),
 				   evt);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer(evt)");
    
     err = queue.finish();
 
@@ -968,7 +968,7 @@ int main(int argc, char* argv[]) {
     err = queue.enqueueNDRangeKernel(
 				     kernel_compute_eeword,
 				     cl::NullRange,
-				     cl::NDRange(NEVTS+156),
+				     cl::NDRange(256*((NEVTS%256)+1)),
 				     cl::NDRange(256),
 				     NULL,
 				     &event);
@@ -1012,7 +1012,7 @@ int main(int argc, char* argv[]) {
 				  0,
 				  sizeof(fout_arrays),
 				  fout_dev);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer(fout)");
 
     err = queue.finish();
     gettimeofday(&ptEnd, NULL);
