@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
   gettimeofday(&tBegin, NULL);
 
   const bool PRINT_TIME=false;
-  const int N_LOOPS=1000;
+  const int N_LOOPS=1;
   const int N_CHECKS=5;
   float times[N_CHECKS][N_LOOPS];
   int n_iters=0;
@@ -968,8 +968,8 @@ int main(int argc, char* argv[]) {
     err = queue.enqueueNDRangeKernel(
 				     kernel_compute_eeword,
 				     cl::NullRange,
-				     cl::NDRange(256*((NEVTS%256)+1)),
-				     cl::NDRange(256),
+				     cl::NDRange(NEVTS),
+				     cl::NDRange(1),
 				     NULL,
 				     &event);
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(compute_eeword)");
