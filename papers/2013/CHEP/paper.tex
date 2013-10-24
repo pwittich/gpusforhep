@@ -51,7 +51,7 @@
   the selection of events based on the trajectories of charged particles.
   We use as benchmark a scaled-up version of the algorithm used at CDF 
   experiment at Tevatron for online track reconstruction - the SVT algorithm - 
-as a realistic  test-case for low-latency trigger systems using new computing
+  as a realistic  test-case for low-latency trigger systems using new computing
   architectures for LHC experiment. We examine the
   complexity/performance trade-off in porting existing serial
   algorithms to many-core devices. Measurements of both data processing 
@@ -60,7 +60,6 @@ as a realistic  test-case for low-latency trigger systems using new computing
 \end{abstract}
 
 \section{Introduction}
-%%% Verbatim from NSS paper
 Real-time event reconstruction plays a fundamental role in High Energy
 Physics (HEP) experiments at hadron colliders.  Reducing the rate of
 data to be saved on tape from millions to hundreds of events per
@@ -72,34 +71,36 @@ selection system (trigger) is usually organized in multiple levels,
 each capable of performing a finer selection on more complex physics
 objects describing the event. Trigger systems usually comprise a first
 level based on custom hardware, followed by one or two levels usually
-based on farms of general purpose processors.  The possibility of also
-using commercial devices at a low trigger level is very appealing:
-they are subject to continuous performance improvements driven by the
-consumer market, are less expensive than dedicated hardware, and are
-easier to support.  Among the commercial devices, many-core architectures 
-such as Graphic Processing Units (GPUs)~\cite{bib_gpu} and Intel Many
-  Integrated Core (MIC)~\cite{bib_intelMIC} are of particular interest for 
-online 
-selections given their great computing power (the latest 
-\textsc{nvidia}~\cite{bib_nvidia} GPU architecture, Kepler, exceeds Teraflop 
-computing power); moreover,
-high-level programming architectures based on C/C++ such as
-\textsc{cuda}~\cite{bib_cuda}  and 
-\textsc{opencl}~\cite{bib_opencl} make these devices more accessible to 
-the general user.  The ultimate
-goal of this study is to investigate the strengths and weaknesses of
-many-core devices when applied in a low latency environment, with particular
-emphasis on the data transfer latency to/from the device and the
-algorithm latency for processing on the device in a manner similar to a
-typical HEP trigger application, and to understand the cost/complexity
-ratio of porting legacy serial code to many-core devices.
+based on farms of general purpose processors.  At all levels, latency
+is a concern: for a fixed processing time, the faster a decision is
+rendered about accepting or rejecting an event improves the purity of
+the collected data sample. The possibility of using commercial devices
+at a low trigger level is very appealing: they are subject to
+continuous performance improvements driven by the consumer market, are
+less expensive than dedicated hardware, and are easier to support.
+Among the commercial devices, many-core architectures such as Graphic
+Processing Units (GPUs)~\cite{bib_gpu} and Intel Many Integrated Core
+(MIC)~\cite{bib_intelMIC} are of particular interest for online
+selections given their great computing power: the latest
+\textsc{nvidia}~\cite{bib_nvidia} GPU architecture, Kepler, exceeds
+Teraflop computing power. Moreover, high-level programming
+architectures based on \textsc{c/c++} such as
+\textsc{cuda}~\cite{bib_cuda} and \textsc{opencl}~\cite{bib_opencl}
+make programming these devices more accessible to the general
+physicist user.  The goal of this study is to investigate the
+strengths and weaknesses of many-core devices when applied in a low
+latency environment, with particular emphasis on the data transfer
+latency to/from the device and the algorithm latency for processing on
+the device in a manner similar to a typical HEP trigger application,
+and to understand the cost/complexity ratio of porting legacy serial
+code to many-core devices.
 
 We showed initial studies on GPU performance in low-latency
-environments ($\sim 100~\mu$s) in  previous
+environments ($\approx 100~\mu$s) in previous
 papers~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies
-to include other many-core systems (Intel MIC in addition to GPUs).
-The algorithm run on the parallel architecture is a complete
-version of the fast track fitting algorithm of the Silicon Vertex
+to include other many-core architectures (Intel MIC in addition to
+GPUs).  The algorithm run on the parallel architecture is a complete
+version of the fast track-fitting algorithm of the Silicon Vertex
 Tracker (SVT) system at CDF~\cite{SVT1}.
 %We also compare the performance of GPU
 %cards from different manufacturers (AMD vs NVIDIA) and different
@@ -119,20 +120,20 @@ the data structures used. To achieve optimal performance, these steps
 would have to be taken.  As one might expect, the improvement from the
 first approach is rather modest, and the second approach shows larger
 performance gains. For GPUs, we also test different strategies to transfer
- data to/from the device.
+data to and from the device.
 
 \section{SVT track fitting algorithm}
-The Silicon Vertex Trigger (SVT)~\cite{SVT1,SVT2} is a 
-track reconstruction processor used at 
-trigger level in the CDF experiment at Tevatron accelerator. It reconstructs 
-tracks in about 20 $\mu s$ in time in two steps: for each event 
-first low resolution tracks (\textit{roads}) are found among the hits left 
-in the tracking detector by charged particles; then track fitting is 
-performed on all possible combinations of hits inside a road. 
-This algorithm uses a linearized approximation to track-fitting as 
-implemented in hardware (described in greater detail in~\cite{SVT3}). 
-With the SVT approach, the determination of the track parameters 
-($p_i$) is reduced to a simple scalar product:
+The Silicon Vertex Trigger (SVT)~\cite{SVT1,SVT2} is a track
+reconstruction processor used in the CDF experiment at Tevatron
+accelerator. It reconstructs tracks in about 20 $\mu s$ in two steps:
+first, low resolution tracks (\textit{roads}) are found in each event
+among the energy deposits left in the tracking detector by charged
+particles; second, track fitting is performed on all possible
+combinations of hits inside a road.  This algorithm uses a linearized
+approximation to track-fitting as implemented in hardware (described
+in greater detail in~\cite{SVT3}).  With the linearized track fit of
+the SVT approach, the determination of the track parameters ($p_i$) is
+reduced to a simple scalar product:
 \[
 p_i = \vec{f_i} \cdot \vec{x_i} + q_i,
 \]
@@ -149,19 +150,20 @@ each track can be handled independently.
 \subsection{Code implementation}
 The starting point of of our studies is the SVT track fitting
 simulation code, written in the \textsc{c} language. SVT track fitting
-is divided into three main functions: the unpacking of input data and
-filling of all the necessary arrays, followed by the computation of
-all possible combinations of hits in each road and finally the fit of
-each combination. Three main loops are present - on events, roads and
-hit combinations.  To be run on GPUs, the code has been ported to
-\textsc{cuda}: each step - unpack, combine and track fit - is
-performed by a specific kernel; the three nested loops are unrolled so
-that each GPU thread processes a single combination of hits.  To run
-on MIC, we adopted the so-called \textit{embarrassingly parallel}
-approach and used \textsc{pragma OpenMP} for statements to unroll the external
-loop on the events, so that each core processes a single event: the
-porting requires much less effort compared to \textsc{cuda}, but the level of
-parallelism is limited.
+is divided into three main functions: first, the unpacking of input
+data and filling of all the necessary data structures; second, the
+computation of all possible combinations of hits in each road and
+third, the linearized track fit of each combination of hits. Three
+main loops are present - on events, roads and hit combinations.  To be
+run on GPUs, the code has been ported to \textsc{cuda}: each step -
+unpack, combine and track fit - is performed by a specific kernel; the
+three nested loops are unrolled so that each GPU thread processes a
+single combination of hits.  To run on MIC, we adopted the so-called
+\textit{embarrassingly parallel} approach and used \textsc{pragma
+  OpenMP} for statements to unroll the external loop on the events, so
+that each core processes a single event: the porting requires much
+less effort compared to \textsc{cuda}, but the level of parallelism is
+limited.
 
 \section{Experimental setup and data flow}
 The many-core devices used in this study are listed in
@@ -201,8 +203,8 @@ other as a receiver.  Data are transferred from the transmitter to the
 receiver, processed on the GPU and sent back to the receiver (see
 Fig.~\ref{fig:data_flow}).  
 The latency for a complete loop is measured on the transmitter using 
-standard C libraries.
-\begin{figure}[tbph]
+standard \textsc{c} libraries.
+\begin{figure}[btp]
 \centering
 \includegraphics[width=3.5in]{figures/SetUp-general}
 \caption{Data flow. Data is sent from the transmitter PC to the
@@ -221,10 +223,11 @@ rough estimate of the latency to transfer the data from the detector
 front-end to the trigger system.
 
 \section{Results}
-We use as input data events with a fixed number of roads and combinations: 
-each event has 2048 combinations to be fitted. To explore different data 
-taking conditions the number of events ranges from one to 3000, i.e. from 2048 
-to about six millions of combinations to fit.
+The input data consists of events with a fixed number of roads and
+combinations: each event has 2048 combinations to be fitted. To
+explore different data-taking conditions, the number of events ranges
+from one to 3000, \emph{i.e.,} from 2048 to about six millions of combinations
+to fit.
  
 \subsection{Data processing}
 Each data sample is processed 100 times by the track fitting algorithm. 
@@ -234,9 +237,35 @@ embarrassingly parallel and parallel algorithms. We see that the
 embarrassingly parallel algorithm gives a modest increase with respect
 to the serial (CPU) algorithm. Switching to a fully parallel algorithm
 affords a much more significant speed improvement. 
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/TimeComp_MIC}
+  \caption{Algorithm-only comparison for timing as a function of the
+    number of track fits. We compare timing on CPUs (serial), Intel
+    MIC (embarrassingly parallel), and GPUs (fully parallel), in
+    blue, greed, and red, respectively. The GPUs exhibit the best
+    performance due to the full parallelization. }
+  \label{fig:algo_only_timing}
+\end{figure}
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/TimeCompZoom_MIC.png} 
+  \caption{Algorithm-only comparison for timing as a function of the
+    number of track fits: zoom in the low number of fits region. At
+    low number of fits, the CPU performs better, due to start-up
+    costs associated with data transfers to the accelerator card.}
+  \label{fig:algo_only_timing_zoom}
+\end{figure}
+\begin{figure}[tbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/Speedup_MIC}
+  \caption{Speed-up with respect to a standard CPU (Intel Xeon
+    E5630). The speed-ups plateau after about two million fits.}
+  \label{fig:algo_only_speedup}
+\end{figure}
 Accelerators performance drop with decreasing number of fits, as can be seen 
 in Fig.~\ref{fig:algo_only_timing_zoom}.
-Fig.~\ref{fig:algo_only_speedup} shows the speed-up with respect to the serial 
+Figure~\ref{fig:algo_only_speedup} shows the speed-up with respect to the serial 
 algorithm run on a standard CPU (Intel Xeon E5630): the maximum gain is 
 obtained processing at least 500 events. This means that to fully exploit 
 parallel architectures millions of fits have to be performed in parallel.  
@@ -255,42 +284,12 @@ parallel architectures millions of fits have to be performed in parallel.
 %\end{figure*}
 %
 
- \begin{figure}[!tbp]
-    \centering
-    \includegraphics[width=0.9\linewidth]{figures/TimeComp_MIC}
-    \caption{Algorithm-only comparison for timing as a function of the
-      number of track fits. We compare timing on CPUs (serial), Intel
-      MIC (embarrassingly parallel), and GPUs (fully parallel), in
-      blue, greed, and red, respectively. The GPUs exhibit the best
-      performance due to the full parallelization. }
-    \label{fig:algo_only_timing}
-  \end{figure}
- 
-  \begin{figure}[!tbp]
-    \centering
-    \includegraphics[width=0.9\linewidth]{figures/TimeCompZoom_MIC.png} 
-    \caption{Algorithm-only comparison for timing as a function of the
-      number of track fits: zoom in the low number of fits region. At
-      low number of fits, the CPU performs better, due to start-up
-      costs associated with data transfers to the accelerator card.}
-    \label{fig:algo_only_timing_zoom}
-  \end{figure}
- 
- \begin{figure}[!tbp]
-   \centering
-   \includegraphics[width=0.9\linewidth]{figures/Speedup_MIC}
-   \caption{Speed-up with respect to a standard CPU (Intel Xeon
-     E5630). The speed-ups plateau after about two million fits.}
-   \label{fig:algo_only_speedup}
- \end{figure}
-
-
 \subsubsection{Breakdown of computing time}
 In Fig.~\ref{fig:breakdown} we show the fractional time spent in
 various parts of the algorithm for the embarrassingly parallel algorithm 
-(on Intel MIC) and the parallel algorithm (on NVIDIA Titan GPU), as a 
+(on Intel MIC) and the parallel algorithm (on \textsc{nvidia} Titan GPU), as a 
 function of the number of fits. On both accelerator cards the fractional times
-are constant over 500 input events, where computing resources are saturated. 
+are constant for more than 500 input events, where computing resources are saturated. 
 Unlike the MIC, the fit stage takes most of the time on the GPU: this 
 could be caused by the intense memory access frequency intrinsic to
 this part of the algorithm.  
@@ -362,8 +361,7 @@ intermediate copy to the CPU (Fig.~\ref{fig:GPUDirectV2}).
     processing on the GPU) as a function of data buffer sizes, for
     three different levels of optimization of GPUDirect: v1.0,
     \textsc{cuda}-aware MPI and P2P. The smallest transferred data
-    packed is 600 kB. \fixme{Below it says 600 kb is the place where
-      P2P gets worse?} \textsc{cuda}-aware MPI shows the best
+    packed is 600 kB.  \textsc{cuda}-aware MPI shows the best
     performance for larger packet size.}
   \label{fig:xferlatency}
 \end{figure}
@@ -373,10 +371,10 @@ transfer, copy to/from the GPU and data processing on the GPU) as a
 function of data packet size when data are transferred using GPUDirect
 v1.0, \textsc{cuda}-aware MPI and P2P. For the packet sizes over 600
 kB \textsc{cuda}-aware MPI gives the best performance (see
-also~\cite{NSS2012} and~\cite{bib_mvapich})  \fixme{do we have this
-  plot? Silvia: no, and will not have in time for the
-  proceedings... but we can put a reference, see slides after page
-  47. Peter: I don't clearly see what that tells me....}.
+also~\cite{NSS2012} and~\cite{bib_mvapich})  % \fixme{do we have this
+  % plot? Silvia: no, and will not have in time for the
+  % proceedings... but we can put a reference, see slides after page
+  % 47. Peter: I don't clearly see what that tells me....}.
 
 
 \begin{figure}[tbp]
