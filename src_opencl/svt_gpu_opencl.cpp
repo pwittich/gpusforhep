@@ -71,6 +71,7 @@ void set_outcable_fout(fout_arrays* fout_dev, int totEvts, unsigned int *&data_r
 
   for (int i=0; i < ow ; i++) {
     data_rec[i] = out->data[i];
+    //printf("output word %d is 0x%x\n",i,out->data[i]);
   }
 
 //  svtsim_free(out);
@@ -294,7 +295,7 @@ int main(int argc, char* argv[]) {
     //plat_i = 1;	
     
     //this is for AMD card...
-    dev_i = 0;
+    dev_i = 1;
     plat_i = 0;	
 
 
@@ -319,8 +320,8 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "Context::Context()");
 
     //run specified kernel on device based on plat_i and dev_i
-    //std::cout << __FANCY__ << "selected [Platform, Device] is [" << plat_i << "," << dev_i << "]" << 
-    //  " type=" << (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)?"GPU":"CPU") << std::endl;
+    std::cout << __FANCY__ << "selected [Platform, Device] is [" << plat_i << "," << dev_i << "]" << 
+      " type=" << (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)?"GPU":"CPU") << std::endl;
     
     cl::Device device = (*deviceList[plat_i])[dev_i]; //get current device to simplify calls
     
@@ -353,7 +354,7 @@ int main(int argc, char* argv[]) {
     
     err = program_init.build(*(deviceList[plat_i]),buildOptions_init.c_str());
 	      
-    //CL_HELPERFUNCS::displayBuildLog(program_init, device);
+    CL_HELPERFUNCS::displayBuildLog(program_init, device);
     CL_HELPERFUNCS::checkErr(err, "Build::Build()");
 
     //====================================
@@ -381,7 +382,7 @@ int main(int argc, char* argv[]) {
     
     err = program.build(*(deviceList[plat_i]),buildOptions.c_str());
 	      
-    //CL_HELPERFUNCS::displayBuildLog(program, device);
+    CL_HELPERFUNCS::displayBuildLog(program, device);
     CL_HELPERFUNCS::checkErr(err, "Build::Build()");
     
     
@@ -500,8 +501,8 @@ int main(int argc, char* argv[]) {
 			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			    0:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			    sizeof(extra_data),
-			    //edata_dev,
-			    NULL,
+			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			    NULL:edata_dev,
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
 
@@ -573,8 +574,8 @@ int main(int argc, char* argv[]) {
 		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 		      0:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		      sizeof(evt_arrays),
-		      //evt,
-		      NULL,
+		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+		      NULL:evt,
 		      &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IN");
 
@@ -584,8 +585,8 @@ int main(int argc, char* argv[]) {
 			  CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			  CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			  sizeof(fit_arrays),
-			  //fit_dev,
-			  NULL,
+			  (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+			  NULL:fit_dev,
 			  &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
     
@@ -597,8 +598,8 @@ int main(int argc, char* argv[]) {
 			  CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			  CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			  sizeof(fep_arrays),
-			  //fep_dev,
-			  NULL,
+			  (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+			  NULL:fep_dev,
 			  &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
         
@@ -607,8 +608,8 @@ int main(int argc, char* argv[]) {
 			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
 			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
 			    sizeof(fout_arrays),
-			    //fout_dev,
-			    NULL,
+			    (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+			    NULL:fout_dev,
 			    &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
 
@@ -640,7 +641,7 @@ int main(int argc, char* argv[]) {
     err = kernel_compute_eeword.setArg(2, fout_dev_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
 
-    /*
+    
     err = queue.enqueueNDRangeKernel(
     				     kernel_init,
 				     cl::NullRange,
@@ -651,15 +652,14 @@ int main(int argc, char* argv[]) {
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(init)");
 
     event.wait();
-    */
+    
     //printf("We have prepared the buffers and are ready to go!\n");
 
     //printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
     //	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
 
-    //gettimeofday(&ptBegin, NULL);
-
     gettimeofday(&ptBegin, NULL);
+
     gf_fep_unpack_evt(evt, k, data_send); //printf("Total events %d\n\n",evt->totEvts);
 
     gettimeofday(&ptEnd, NULL);
@@ -843,7 +843,7 @@ int main(int argc, char* argv[]) {
 
 
     gettimeofday(&ptBegin, NULL);
-
+    /*
     err = queue.enqueueNDRangeKernel(
     				     kernel_init,
 				     cl::NullRange,
@@ -853,6 +853,8 @@ int main(int argc, char* argv[]) {
 				     &event);
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(init)");
 
+    err = queue.finish();
+    */
     err = queue.enqueueWriteBuffer(
 				   evt_CL,
 				   CL_TRUE,
@@ -968,6 +970,8 @@ int main(int argc, char* argv[]) {
     err = queue.enqueueNDRangeKernel(
 				     kernel_compute_eeword,
 				     cl::NullRange,
+				     //cl::NDRange(((NEVTS+255)/256) * 256),
+				     //cl::NDRange(256),
 				     cl::NDRange(NEVTS),
 				     cl::NDRange(1),
 				     NULL,
@@ -987,25 +991,25 @@ int main(int argc, char* argv[]) {
     //printf("Error was ... %d\n",err);
     //err = queue.finish();
     //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
-    /*
+    
     err = queue.enqueueReadBuffer(
 				  fep_dev_CL,
 				  CL_TRUE,
 				  0,
 				  sizeof(fep_arrays),
 				  fep_dev);
-    */
-    //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
+    
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueReadBuffer()");
 
-    /*
+    
     err = queue.enqueueReadBuffer(
 				  fit_dev_CL,
 				  CL_TRUE,
 				  0,
 				  sizeof(fit_arrays),
 				  fit_dev);
-    //CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
-    */
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    
     err = queue.enqueueReadBuffer(
 				  fout_dev_CL,
 				  CL_TRUE,
@@ -1029,8 +1033,8 @@ int main(int argc, char* argv[]) {
 			  ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
     /*
     for(int ie=0; ie<NEVTS; ie++){
-      //printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie],fout_dev->fout_parity[ie]);
-      
+      printf("\nEvent %d, evt_nroads = %d, fep_nroads=%d, fit_err_sum=%d, fout_ntrks=%d, fout_parity=%d",ie,evt->evt_nroads[ie],fep_dev->fep_nroads[ie],fit_dev->fit_err_sum[ie],fout_dev->fout_ntrks[ie],fout_dev->fout_parity[ie]);
+            
       for(int ir=0; ir<MAXROAD; ir++){
 	if(fep_dev->fep_ncmb[ie][ir]!=0)
 	  printf("\n\tRoad %d, ncomb = %d",ir,fep_dev->fep_ncmb[ie][ir]);
@@ -1048,9 +1052,9 @@ int main(int argc, char* argv[]) {
 	  }
 	}
       }
-      
+    
     }
-*/
+    */
 
     set_outcable_fout(fout_dev, NEVTS, data_rec, ow);
     n_iters++;
