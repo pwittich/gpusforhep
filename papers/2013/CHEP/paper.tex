@@ -158,9 +158,10 @@ main loops are present - on events, roads and hit combinations.  To be
 run on GPUs, the code has been ported to \textsc{cuda}: each step -
 unpack, combine and track fit - is performed by a specific kernel; the
 three nested loops are unrolled so that each GPU thread processes a
-single combination of hits.  To run on MIC, we adopted the so-called
+single combination of hits.  To run on MIC, where cores are more powerful 
+but fewer in number, we adopted the so-called
 \textit{embarrassingly parallel} approach and used \textsc{pragma
-  OpenMP} for statements to unroll the external loop on the events, so
+  OpenMP} for statements to unroll only the external loop on the events, so
 that each core processes a single event: the porting requires much
 less effort compared to \textsc{cuda}, but the level of parallelism is
 limited.
@@ -194,8 +195,8 @@ class GPU (GTX) and ones optimized for scientific computing
 To measure the data transfer latency we use a computing cluster composed of 
 12 identical nodes.  Each node contains a Intel Xeon E6520 2.4 GHz 
 CPU and two Tesla M2075 GPU cards. The nodes are connected by InfiniBand 
-communication links using Connect-X2 Mellanox or Apenet+ adapters. 
-Apenet+ is an FPGA-based PCIe board supporting peer-to-peer communication with 
+communication links using Connect-X2 Mellanox or APEnet+ adapters. 
+APEnet+ is an FPGA-based PCIe board supporting peer-to-peer communication with 
 Tesla and Kepler cards~\cite{apenet2010}.
 Two nodes of this cluster are used to measure data transfer latency,
 one acting as a transmitter and the
@@ -356,7 +357,7 @@ intermediate copy to the CPU (Fig.~\ref{fig:GPUDirectV2}).
 
 \begin{figure}[tbp]
   \centering
-  \includegraphics[width=0.9\linewidth]{figures/datatransfer}
+  \includegraphics[width=0.85\linewidth]{figures/datatransfer}
   \caption{Total latency (data transfer, copy to/from the GPU and data
     processing on the GPU) as a function of data buffer sizes, for
     three different levels of optimization of GPUDirect: v1.0,
@@ -369,9 +370,18 @@ intermediate copy to the CPU (Fig.~\ref{fig:GPUDirectV2}).
 In Fig.~\ref{fig:xferlatency} we show the total latency (data
 transfer, copy to/from the GPU and data processing on the GPU) as a
 function of data packet size when data are transferred using GPUDirect
-v1.0, \textsc{cuda}-aware MPI and P2P. For the packet sizes over 600
-kB \textsc{cuda}-aware MPI gives the best performance (see
-also~\cite{NSS2012} and~\cite{bib_mvapich})  % \fixme{do we have this
+v1.0, \textsc{cuda}-aware MPI and P2P. For the packet sizes considered in this test 
+(over 600 kB) \textsc{cuda}-aware MPI gives the best performance. This is expected as 
+P2P is optimized for small packet sizes
+ (see also~\cite{NSS2012} and~\cite{bib_mvapich}). As a matter of fact, for larger packet size, the channel 
+throughput becomes dominant: the shortest transfer 
+time of CUDA aware-MPI system is easily explained comparing the link bandwidth of Mellanox board (40 Gb/s) 
+with the smaller throughput of a APEnet+ single link (30 Gb/s).  
+The data transfer latency accounts for a significant part of the total
+latency, as can be seen in Fig.~\ref{fig:transferOnly}: about 20-25\%
+of total latency is due to moving the data to and from the GPU.
+
+% \fixme{do we have this
   % plot? Silvia: no, and will not have in time for the
   % proceedings... but we can put a reference, see slides after page
   % 47. Peter: I don't clearly see what that tells me....}.
@@ -379,7 +389,7 @@ also~\cite{NSS2012} and~\cite{bib_mvapich})  % \fixme{do we have this
 
 \begin{figure}[tbp]
   \centering
-  \includegraphics[width=0.9\linewidth]{figures/cudaware}
+  \includegraphics[width=0.85\linewidth]{figures/cudaware}
   \caption{Time per fit, in msec. The two curves show total timing
     with and without calculations performed on the GPU, thereby
     showing the considerable time spent in data transfer. About
@@ -387,9 +397,6 @@ also~\cite{NSS2012} and~\cite{bib_mvapich})  % \fixme{do we have this
   \label{fig:transferOnly}
 \end{figure}
 
-The data transfer latency accounts for a significant part of the total
-latency, as can be seen in Fig.~\ref{fig:transferOnly}: about 20-25\%
-of total latency is due to moving the data to and from the GPU.
 
 
 \section{Conclusions}
@@ -401,18 +408,24 @@ achieved with the `embarrassingly parallel' approach on an Intel MIC
 architecture, with the smallest amount of required changes to an
 existing serial code base. However, better performance is achieved
 with GPUs and a more complete event-level parallelization using
-\textsc{cuda}.  We have updated latency studies and shown that for
-larger packet sizes (greater than 600~kB), \textsc{cuda}-aware MPI
-outperforms P2P, contrary to naive expectation.  Even at large packet
+\textsc{cuda}.  We have updated latency studies and shown that for larger packet sizes 
+(greater than 600 kB), cuda- aware MPI outperforms P2P. This result fully agrees with expectations 
+since the P2P mechanism is optimized (and effective) to reduce the transfer latency for 
+small size packets (less than 128KB).
+%We have updated latency studies and shown that for
+%larger packet sizes (greater than 600~kB), \textsc{cuda}-aware MPI
+%outperforms P2P, contrary to naive expectation.  
+Even at large packet
 size, the data transfer takes an appreciable fraction of the total
 algorithm time (about 20-25\%).
 
 %% gives unnumbered ack in CHEP style
 \ack
-The authors would like to thank the Fermilab staff and the FTK group at the 
-University of Chicago for their support. This work was supported by the
+The authors would like to thank the Fermilab staff,  the FTK group at the 
+University of Chicago and the INFN-APE group in Rome for their support. This work was supported by the
 U.S. Department of Energy, the U.S. National Science Foundation and the Italian
-Istituto Nazionale di Fisica Nucleare. 
+Istituto Nazionale di Fisica Nucleare. This work was partially supported by the 
+EU Framework Programme 7 project EURETILE under grant number 247846. 
 
 \section*{References}
 
