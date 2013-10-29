@@ -409,9 +409,9 @@ architecture, with the smallest amount of required changes to an
 existing serial code base. However, better performance is achieved
 with GPUs and a more complete event-level parallelization using
 \textsc{cuda}.  We have updated latency studies and shown that for larger packet sizes 
-(greater than 600 kB), cuda- aware MPI outperforms P2P. This result fully agrees with expectations 
+(greater than 600 kB), \textsc{cuda}-aware MPI outperforms P2P. This result fully agrees with expectations 
 since the P2P mechanism is optimized (and effective) to reduce the transfer latency for 
-small size packets (less than 128KB).
+small size packets.
 %We have updated latency studies and shown that for
 %larger packet sizes (greater than 600~kB), \textsc{cuda}-aware MPI
 %outperforms P2P, contrary to naive expectation.  
