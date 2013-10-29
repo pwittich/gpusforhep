@@ -371,7 +371,7 @@ In Fig.~\ref{fig:xferlatency} we show the total latency (data
 transfer, copy to/from the GPU and data processing on the GPU) as a
 function of data packet size when data are transferred using GPUDirect
 v1.0, \textsc{cuda}-aware MPI and P2P. For the packet sizes considered in this test 
-(over 600 kB) \textsc{cuda}-aware MPI gives the best performance. This is expected as 
+ \textsc{cuda}-aware MPI gives the best performance. This is expected as 
 P2P is optimized for small packet sizes
  (see also~\cite{NSS2012} and~\cite{bib_mvapich}). As a matter of fact, for larger packet size, the channel 
 throughput becomes dominant: the shortest transfer 
