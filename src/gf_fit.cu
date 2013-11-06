@@ -777,15 +777,6 @@ __global__ void gf_fit_format_GPU (struct fep_arrays* fep_dev,
     }
     fit_dev->fit_fit[ie][2][ir][ic][ich] = temp;
 
-    /* chi 1,2,3 */
-
-    /*
-    for(ichi = 3; ichi < 6; ichi++) {
-      temp = fit_fit[ie + ichi*NEVTS + ir*NEVTS*6 + ic*NEVTS*6*MAXROAD + ich*NEVTS*6*MAXROAD*MAXCOMB];
-      fit_fit[ie][ichi][ir][ic][ich] = temp;
-    }
-    */
-
   } // end if
 
 
@@ -1026,8 +1017,23 @@ __global__ void gf_compute_eeword_GPU( struct fep_arrays* fep_dev, struct fit_ar
   } 
 }
 
+__global__ void gf_setout(struct fout_arrays* fout_dev, int maxEvt, unsigned int* cable_dev, int* ndata_dev) {
+
+  *ndata_dev = 0;
+
+  for (int ie=0; ie < maxEvt; ie++) {
+    for (int nt=0; nt < fout_dev->fout_ntrks[ie]; nt++) {
+      memcpy(cable_dev + *ndata_dev, fout_dev->fout_gfword[ie][nt], NTFWORDS*sizeof(unsigned int));
+      (*ndata_dev) += NTFWORDS;
+    }
+    memcpy(cable_dev + *ndata_dev, &fout_dev->fout_ee_word[ie], sizeof(unsigned int));
+    (*ndata_dev)++;
+  }
+}
+
 void gf_fit_GPU(struct fep_arrays* fep_dev, struct evt_arrays* evt_dev, struct extra_data* edata_dev,
-                struct fit_arrays* fit_dev, struct fout_arrays* fout_dev, int maxEvt) {
+                struct fit_arrays* fit_dev, struct fout_arrays* fout_dev, int maxEvt,
+                unsigned int* cable_dev, int* ndata_dev) {
 
   dim3 blocks(NEVTS,MAXROAD);
 
@@ -1035,5 +1041,6 @@ void gf_fit_GPU(struct fep_arrays* fep_dev, struct evt_arrays* evt_dev, struct e
   gf_fit_format_GPU<<<blocks, dim3(MAXCOMB, MAXCOMB5H)>>>(fep_dev, fit_dev, maxEvt);
   gf_comparator_GPU<<<blocks, dim3(MAXCOMB)>>>(fep_dev, evt_dev, fit_dev, fout_dev, maxEvt);
   gf_compute_eeword_GPU<<<(NEVTS+255)/256, 256>>>(fep_dev, fit_dev, fout_dev, maxEvt); 
+  gf_setout<<<1,1>>>(fout_dev, maxEvt, cable_dev, ndata_dev);
 
 } 

@@ -156,7 +156,6 @@ struct fout_arrays {
 
 };
 
-
 extern "C" {
 
   int gf_init(tf_arrays_t* ptr_tf);
@@ -174,7 +173,7 @@ extern "C" {
   void gf_unpack_thrust_GPU(thrust::device_vector<unsigned int> d_vec, int n_words, struct evt_arrays *evt_dev, int *d_tEvts );
   void gf_fep_GPU( evt_arrays* evt_dev, fep_arrays* fep_dev, int maxEvt );
   void gf_fit_GPU(struct fep_arrays* fep_dev, struct evt_arrays* evt_dev, struct extra_data* edata_dev,
-                struct fit_arrays* fit_dev, struct fout_arrays* fout_dev, int maxEvt);
+                struct fit_arrays* fit_dev, struct fout_arrays* fout_dev, int maxEvt, unsigned int* cable_dev, int* ndata_dev);
 }
 
 

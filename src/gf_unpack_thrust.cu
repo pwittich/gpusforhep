@@ -106,8 +106,8 @@ struct layerHitMultiply {
 struct fill_tf_gpu {
   int *totEvts; // pointer in device memory
   struct evt_arrays *tf; // pointer in device memory
-  __device__ fill_tf_gpu(struct evt_arrays *_tf, int *_totEvts) : tf(_tf), totEvts(_totEvts) {
-    *totEvts = 0;
+  __host__ __device__ fill_tf_gpu(struct evt_arrays *_tf, int *_totEvts) : tf(_tf), totEvts(_totEvts) {
+   // *totEvts = 0;
   } // constructor
 
   template <typename Tuple>

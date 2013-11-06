@@ -32,7 +32,7 @@
 
 #include <linux/types.h>
 #include <string.h>
-#include <asm/msr.h>
+//#include <asm/msr.h>
 #include "svtsim_functions.h"
 
 static char svtsim_err_str[10][256];

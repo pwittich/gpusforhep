@@ -1,7 +1,6 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include "svt_utils.h"
-#include "cycles.h"
 #include <math.h>
 
 #include <sched.h>
@@ -34,26 +33,6 @@ inline float stop_time(const char *msg) {
       printf("Time to %s: %.3f ms\n", msg, elapsedTime);
   }
   return elapsedTime;
-}
-
-
-cycles_t cycles2us = 0;
-cycles_t cycles2ns = 0;
-
-void calibrate_cycles()
-{
-  cycles_t c1, c2, dt_us, dc;
-  struct timeval t1,t2;
-
-  c1 = get_cycles();
-  gettimeofday(&t1, 0);
-  usleep(10);
-  gettimeofday(&t2, 0);
-  c2 = get_cycles();
-  dt_us = timeval_sub_us(t2, t1);
-  dc = (c2 - c1);
-  cycles2us = dc / dt_us;
-  cycles2ns = dc / (dt_us * 1000);
 }
 
 // calculate mean and stdev on an array of count floats
@@ -122,15 +101,18 @@ void setedata_GPU(tf_arrays_t tf, struct extra_data *edata_dev) {
 }
 
 
-void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in, int n_words, float *timer, int nothrust) {
+int svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in, int n_words, float *timer, int nothrust, unsigned int* dataout) {
 
   int tEvts=0;
+  int ndata=0;
   dim3 blocks(NEVTS,MAXROAD);
 
   start_time();
   // Cuda Malloc
   int* d_tEvts;
   MY_CUDA_CHECK(cudaMalloc((void**)&d_tEvts, sizeof(int)));
+  int* ndata_dev;
+  MY_CUDA_CHECK(cudaMalloc((void**)&ndata_dev, sizeof(int)));
   struct evt_arrays* evt_dev;
   MY_CUDA_CHECK(cudaMalloc((void**)&evt_dev, sizeof(evt_arrays)));
   struct fep_arrays *fep_dev;
@@ -139,6 +121,8 @@ void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in
   MY_CUDA_CHECK(cudaMalloc((void**)&fit_dev, sizeof(fit_arrays)));
   struct fout_arrays *fout_dev;
   MY_CUDA_CHECK(cudaMalloc((void**)&fout_dev, sizeof(fout_arrays)));
+  unsigned int *dataout_dev;
+  MY_CUDA_CHECK(cudaMalloc((void**)&dataout_dev, n_words*sizeof(int)));
 
   // initialize structures
   init_arrays_GPU<<<blocks, NSVX_PLANE+1>>>(fout_dev, evt_dev, d_tEvts);
@@ -182,40 +166,29 @@ void svt_GPU(tf_arrays_t tf, struct extra_data *edata_dev, unsigned int *data_in
   start_time();  
   gf_fep_GPU( evt_dev, fep_dev, tEvts );
   timer[2] =stop_time("compute fep combinations");
-  
+
   // Fit and set Fout
   start_time();
-  gf_fit_GPU(fep_dev, evt_dev, edata_dev, fit_dev, fout_dev, tEvts);
+  gf_fit_GPU(fep_dev, evt_dev, edata_dev, fit_dev, fout_dev, tEvts, dataout_dev, ndata_dev);
   timer[3] = stop_time("fit data and set output");
 
   // Output copy DtoH
-
   start_time();
-  MY_CUDA_CHECK(cudaMemcpy(tf->fout_ntrks, fout_dev->fout_ntrks, NEVTS * sizeof(int), cudaMemcpyDeviceToHost));
-  MY_CUDA_CHECK(cudaMemcpy(tf->fout_ee_word, fout_dev->fout_ee_word, NEVTS * sizeof(int), cudaMemcpyDeviceToHost));
-  MY_CUDA_CHECK(cudaMemcpy(tf->fout_gfword, fout_dev->fout_gfword, NEVTS * MAXROAD * MAXCOMB * NTFWORDS * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+
+  MY_CUDA_CHECK(cudaMemcpy(&ndata, ndata_dev, sizeof(int), cudaMemcpyDeviceToHost));
+  MY_CUDA_CHECK(cudaMemcpy(dataout, dataout_dev, ndata * sizeof(int), cudaMemcpyDeviceToHost));
 
   MY_CUDA_CHECK( cudaFree(evt_dev) );
   MY_CUDA_CHECK( cudaFree(fep_dev) );
   MY_CUDA_CHECK( cudaFree(fit_dev) );
   MY_CUDA_CHECK( cudaFree(fout_dev));
   MY_CUDA_CHECK( cudaFree(d_tEvts));
+  MY_CUDA_CHECK( cudaFree(ndata_dev));
+  MY_CUDA_CHECK( cudaFree(dataout_dev));
   timer[4] = stop_time("copy output (DtoH)");
 
-}
+  return ndata;
 
-void set_outcable(tf_arrays_t tf) {
-
-  svtsim_cable_copywords(tf->out, 0, 0);
-  for (int ie=0; ie < tf->totEvts; ie++) {
-    // insert data in the cable structure, how to "sort" them?!?
-    // data should be insert only if fout_ntrks > 0
-    for (int nt=0; nt < tf->fout_ntrks[ie]; nt++)
-      svtsim_cable_addwords(tf->out, tf->fout_gfword[ie][nt], NTFWORDS);  
-      // insert end word in the cable
-    svtsim_cable_addword(tf->out, tf->fout_ee_word[ie]); 
-  }
- 
 }
 
 void help(char* prog) {
@@ -232,7 +205,6 @@ void help(char* prog) {
   printf("  -h              This help.\n");
 
 }
-
 
 int main(int argc, char* argv[]) {
 
@@ -332,11 +304,11 @@ int main(int argc, char* argv[]) {
   float ptime_cpu[3];
   float times_array[6][N_LOOPS];
   float times_array_cpu[4][N_LOOPS];
-  cycles_t time_start;
-  cycles_t time_stop;
 
+  struct timeval time_start, time_stop;
   struct timeval tBegin, tEnd;
   struct timeval ptBegin, ptEnd;
+
 
   if ( strcmp(where,"gpu") == 0 ) { // GPU
 
@@ -345,13 +317,13 @@ int main(int argc, char* argv[]) {
     // this is just to measure time to initialize GPU
     cudaEvent_t     init;
     MY_CUDA_CHECK( cudaEventCreate( &init ) );
-  
     if ( TIMER ) {
       gettimeofday(&tEnd, NULL);
       initg = ((tEnd.tv_usec + 1000000 * tEnd.tv_sec) - (tBegin.tv_usec + 1000000 * tBegin.tv_sec))/1000000.0;  
     }
   }
 
+  
   // read input file
   FILE* hbout = fopen(fileIn,"r");
 
@@ -367,9 +339,9 @@ int main(int argc, char* argv[]) {
     return 2;
   }
   
-  // read input data file
   char word[16];
   int k=0; // number of words read
+  if ( VERBOSE ) printf("Reading input file %s... ", fileIn);
   while (fscanf(hbout, "%s", word) != EOF) {
     hexaval = strtol(word,NULL,16);
     data_send[k] = hexaval;
@@ -377,6 +349,9 @@ int main(int argc, char* argv[]) {
   }
 
   fclose(hbout);
+
+  int outword;
+  unsigned int *dataout = (unsigned int*)malloc(k*sizeof(unsigned));
 
   tf_arrays_t tf;
   gf_init(&tf);
@@ -396,9 +371,9 @@ int main(int argc, char* argv[]) {
   while (n_iters--) {
 
     if ( strcmp(where,"cpu") == 0 ) { // CPU
-      if ( TIMER ) time_start = get_cycles();
+      if ( TIMER ) gettimeofday(&time_start, NULL);
       
-      if ( VERBOSE ) printf("Start work on CPU..... \n");
+      if ( VERBOSE ) printf("Start working on CPU..... \n");
       
       if ( TIMER ) gettimeofday(&ptBegin, NULL);
 
@@ -432,36 +407,27 @@ int main(int argc, char* argv[]) {
         timerange = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
         if ( VERBOSE ) printf("Time to CPU fit: %.3f ms\n", timerange);
         ptime_cpu[2] = timerange;
-  
-        time_stop=get_cycles();
+        gettimeofday(&time_stop, NULL); 
       }
       if ( VERBOSE ) printf(".... fits %d events! \n", tf->totEvts);
       
 
     } else { // GPU
-      if ( TIMER ) time_start=get_cycles();
-      svt_GPU(tf, edata_dev, data_send, k, ptime, NOTHRUST);
-      if ( TIMER ) gettimeofday(&ptBegin, NULL);
-      // build "cable" output structure
-      set_outcable(tf);  
-      if ( TIMER ) { 
-        gettimeofday(&ptEnd, NULL);
-        timerange = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
-        if ( VERBOSE ) printf("Time to set_outcable on CPU: %.3f ms\n", timerange);
-        ptime[3] += timerange; // this time is computed in fit/fout section
-        time_stop=get_cycles();
-      }
+      if ( VERBOSE ) printf("Start working on GPU...\n");
+      if ( TIMER ) gettimeofday(&time_start, NULL);  
+      outword = svt_GPU(tf, edata_dev, data_send, k, ptime, NOTHRUST, dataout);
+      if ( TIMER ) gettimeofday(&time_stop, NULL);
     }
 
     if ( TIMER ) {
       if ( n_iters < N_LOOPS ) { // skip the first "skip" iterations
-        float time_us = cycles_to_ns(time_stop-time_start)/1000000.0;
+        timerange = ((time_stop.tv_usec + 1000000 * time_stop.tv_sec) - (time_start.tv_usec + 1000000 * time_start.tv_sec))/1000.0;
         if ( strcmp(where,"cpu") != 0 ) { // GPU
-          times_array[0][n_iters] = time_us;
+          times_array[0][n_iters] = timerange;
           for (int t=1; t < 6; ++t) 
             times_array[t][n_iters] = ptime[t-1];
         } else { //CPU
-          times_array_cpu[0][n_iters] = time_us; 
+          times_array_cpu[0][n_iters] = timerange; 
           for (int t=1; t < 4; ++t)
             times_array_cpu[t][n_iters] = ptime_cpu[t-1];
         }
@@ -481,8 +447,12 @@ int main(int argc, char* argv[]) {
 
   // write output file
   FILE* OUTCHECK = fopen(fileOut, "w");
-  for (int i=0; i< tf->out->ndata; i++)
-    fprintf(OUTCHECK,"%.6x\n", tf->out->data[i]);
+  if ( strcmp(where,"cpu") == 0 )  // CPU
+    for (int i=0; i < tf->out->ndata; i++)
+      fprintf(OUTCHECK,"%.6x\n", tf->out->data[i]);
+  else // GPU
+    for (int i=0; i < outword; i++)
+      fprintf(OUTCHECK,"%.6x\n", dataout[i]);
   fclose(OUTCHECK);
   
   // write file with times
