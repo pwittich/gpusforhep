@@ -37,7 +37,10 @@ This work was supported by the  US National Science Foundation, the US
 Department of Energy Office of Science and the Italian
 Istituto Nazionale di Fisica Nucleare. This work was partially supported by the 
 EU Framework Programme 7 project EURETILE under grant number 247846.}% <-this % stops a space
-\thanks{A.~Gianelle, S.~Amerio, D.~Bastieri, M.~Corvo, and D.~Lucchesi are with INFN Padova.}% 
+\thanks{D.~Bastieri and D.~Lucchesi are with University of Padova and INFN Padova.}% 
+\thanks{A.~Gianelle is with INFN Padova.}% 
+\thanks{M.~Corvo is with University of Ferrara.}% 
+\thanks{S.~Amerio is with University of Padova}% 
 \thanks{W.~Ketchum is with Los Alamos National Laboratory.}%
 \thanks{T.~Liu and R.~Rivera are with Fermi National Accelerator Laboratory.}%
 \thanks{A.~Lonardo, L.~Tosoratto and P.~Vicini are with INFN Roma.}% 
@@ -51,16 +54,22 @@ EU Framework Programme 7 project EURETILE under grant number 247846.}% <-this % 
 \begin{abstract}
   Interest in parallel architectures applied to real time selections is 
   growing in High Energy Physics (HEP) experiments. In this paper we describe
-  performance measurements of Graphic Processing Units (GPUs) and Intel Many
-  Integrated Core architecture (MIC) when applied to a typical HEP online task: 
+  performance measurements of many-core devices 
+ %Graphic Processing Units (GPUs) and Intel Many
+  %Integrated Core architecture (MIC) 
+  when applied to a typical HEP online task: 
   the selection of events based on the trajectories of charged particles.
   We use as benchmark a scaled-up version of the algorithm used at CDF 
   experiment at Tevatron for online track reconstruction - the SVT algorithm - 
   as a realistic  test-case for low-latency trigger systems using new computing
   architectures for LHC experiment. We examine the
   complexity/performance trade-off in porting existing serial
-  algorithms to many-core devices. Measurements of both data processing 
-  and data transfer latency are shown, considering different I/O strategies 
+  algorithms to many-core devices. We measure performance of
+different architectures (Intel Xeon Phi and AMD GPU's, in addition 
+to NVidia GPU's) and different software
+environments (OpenCL, in addition to NVidia CUDA).
+Measurements of both data processing  and data transfer latency are shown, 
+considering different I/O strategies 
   to/from the parallel devices. \end{abstract}
 
 \section{Introduction}
@@ -335,7 +344,7 @@ even greater speedup due to the increased number of cores and parallel threads t
 into and out of the GPU that makes running on the GPU take longer for small numbers of combinations to fit.
 \begin{figure}[!t]
   \centering
-  %\includegraphics[width=0.9\linewidth]{figures/Timing_OpenCL}
+  \includegraphics[width=0.9\linewidth]{figures/TotalTimeOpencl_1000}
   \caption{The timing of the \textsc{opencl} algorithm as a function of the
     number of track fits. We compare timing running the algorithm serially on a CPU, 
     using \textsc{opencl} on the CPU, and on an AMD GPU.}
