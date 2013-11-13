@@ -1,10 +1,12 @@
 \documentclass[journal]{IEEEtran}
 \usepackage{graphicx}
 \usepackage{subfigure}
+% \usepackage[cmex10]{amsmath}
+% \usepackage{cite}
 
 \usepackage{hyperref}
-\usepackage{multirow}
-\usepackage[all]{hypcap} % fix links to figs/tabs
+% \usepackage{multirow}
+% \usepackage[all]{hypcap} % fix links to figs/tabs
 
 \renewcommand{\arraystretch}{1.1} % make tables more readable
 
@@ -13,7 +15,8 @@
 %
 \begin{document}
 % paper title
-\title{Title of NSS Talk}
+\title{Applications of Many-Core Technologies to On-line Event Reconstruction in High Energy Physics
+Experiments}
 % Author list
 \author{  A.~Gianelle, 
   S.~Amerio, 
@@ -59,7 +62,7 @@ Department of Energy Office of Science and INFN.}% <-this % stops a space
   to/from the parallel devices. \end{abstract}
 
 \section{Introduction}
-Real-time event reconstruction plays a fundamental role in High Energy
+\IEEEPARstart{R}{eal}-time event reconstruction plays a fundamental role in High Energy
 Physics (HEP) experiments at hadron colliders.  Reducing the rate of
 data to be saved on tape from millions to hundreds of events per
 second is critical. To increase the purity of the collected samples,
@@ -178,7 +181,11 @@ Table~\ref{tab_hwspecs}. The GPUs include a less expensive gaming
 class GPUs (the NVidia GTX and AMD Radeon cards) and ones optimized for scientific computing
 (Tesla). The MIC corresponds to a Xeon Phi introduced in November 2012.
 
-\begin{table}[!t]
+\begin{table*}[tbp]
+  \caption{Capabilities of the many-core devices used in this study,
+    according to the manufacturer's specifications. The first three
+    are \textsc{nvidia} GPUs, the MIC 5110P is an Intel Xeon Phi, and the final one is an AMD GPU.}
+  \label{tab_hwspecs}
   \centering
   \begin{tabular}{|l|c|c|c|c|c|}
     \hline
@@ -192,11 +199,7 @@ class GPUs (the NVidia GTX and AMD Radeon cards) and ones optimized for scientif
     Clock speed (GHz) & 1.15 & 0.706 & 0.837 & 1.053 & 1.375\\
     \hline
   \end{tabular}
-  \caption{Capabilities of the many-core devices used in this study,
-    according to the manufacturer's specifications. The first three
-    are \textsc{nvidia} GPUs, the MIC 5110P is an Intel Xeon Phi, and the final one is an AMD GPU.}
-  \label{tab_hwspecs}
-\end{table}
+\end{table*}
 
 To measure the data transfer latency we use a computing cluster composed of 
 12 identical nodes.  Each node contains a Intel Xeon E6520 2.4 GHz 
@@ -211,7 +214,7 @@ receiver, processed on the GPU and sent back to the receiver (see
 Fig.~\ref{fig:data_flow}).  
 The latency for a complete loop is measured on the transmitter using 
 standard \textsc{c} libraries.
-\begin{figure}[!t]
+\begin{figure}[tbp]
 \centering
 \includegraphics[width=3.5in]{figures/SetUp-general}
 \caption{Data flow. Data is sent from the transmitter PC to the
@@ -449,7 +452,8 @@ U.S. Department of Energy, the U.S. National Science Foundation and the Italian
 Istituto Nazionale di Fisica Nucleare. This work was partially supported by the 
 EU Framework Programme 7 project EURETILE under grant number 247846. 
 
-\bibliographystyle{iopart-num}
+\bibliographystyle{IEEEtran}
+
 \bibliography{gpu}
 
 \end{document}
