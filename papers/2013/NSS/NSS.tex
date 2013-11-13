@@ -243,7 +243,11 @@ trigger system: the time to transfer data to the receiver is thus a
 rough estimate of the latency to transfer the data from the detector
 front-end to the trigger system.
 
-ADDITIONAL PARAGRAPH ON THE FERMILAB SETUP.
+We have an additional setup for testing the \textsc{opencl} implementation of the track 
+fitting algorithm. On this setup, we use a 3.07 GHz Intel Core i7 CPU 950, which has four cores 
+and up to eight computation threads. We can run the algorithm serially on this CPU (one core), or 
+run the \textsc{opencl} algorithm and make use of the multi-core architecture. Additionally, we have an 
+AMD Radeon HD 7970 GPU in a PCIe slot in this setup, on which we can also run the \textsc{opencl} algorithm.
 
 \section{Results}
 The input data consists of events with a fixed number of roads and
@@ -337,7 +341,7 @@ We also measure the track fitting algorithm latency in an implementation
 using \textsc{opencl}. Due to limitations on the available space for storing data on the GPU, we only test the 
 algorithm on up to 1000 events (\textit{i.e.} about 2 million combinations to fit). In Fig.~\ref{fig:opencl_timing} 
 we show the results of algorithm latency measurements for three different modes: running the serial algorithm  
-on the CPU (single-core), running the \textsc{opencl} algorithm on the CPU (8-core), and running the \textsc{opencl} algorithm
+on the CPU (single-core), running the \textsc{opencl} algorithm on the CPU (multi-core), and running the \textsc{opencl} algorithm
 on the AMD Radeon GPU. The \textsc{opencl} implementation of the algorithm on the CPU provides a significant speedup---about 
 a factor of 5---over running the algorithm serially on the CPU. Running the same \textsc{opencl} algorithm on the GPU provides an 
 even greater speedup due to the increased number of cores and parallel threads that can be run, though there is additional latency to copy data 
@@ -448,7 +452,10 @@ achieved with the `embarrassingly parallel' approach on an Intel MIC
 architecture, with the smallest amount of required changes to an
 existing serial code base. However, better performance is achieved
 with GPUs and a more complete event-level parallelization using
-\textsc{cuda}.  We have updated latency studies and shown that for larger packet sizes 
+\textsc{cuda}.  Additionally, we have implemented a parallelized algorithm using 
+\textsc{opencl} and we have run that algorithm on a multi-core CPU and GPU, showing a boost
+in performance over serial CPU computation for even small numbers of events. 
+We have also updated latency studies and shown that for larger packet sizes 
 (greater than 600 kB), \textsc{cuda}-aware MPI outperforms P2P. This result fully agrees with expectations 
 since the P2P mechanism is optimized (and effective) to reduce the transfer latency for 
 small size packets.
