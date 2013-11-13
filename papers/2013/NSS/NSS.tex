@@ -324,7 +324,23 @@ this part of the algorithm.
 \end{figure*}
 
 \subsection{Data processing in \textsc{opencl}}
-RESULTS FROM THE FERMILAB SETUP.
+We also measure the track fitting algorithm latency in an implementation  
+using \textsc{opencl}. Due to limitations on the available space for storing data on the GPU, we only test the 
+algorithm on up to 1000 events (\textit{i.e.} about 2 million combinations to fit). In Fig.~\ref{fig:opencl_timing} 
+we show the results of algorithm latency measurements for three different modes: running the serial algorithm  
+on the CPU (single-core), running the \textsc{opencl} algorithm on the CPU (8-core), and running the \textsc{opencl} algorithm
+on the AMD Radeon GPU. The \textsc{opencl} implementation of the algorithm on the CPU provides a significant speedup---about 
+a factor of 5---over running the algorithm serially on the CPU. Running the same \textsc{opencl} algorithm on the GPU provides an 
+even greater speedup due to the increased number of cores and parallel threads that can be run, though there is additional latency to copy data 
+into and out of the GPU that makes running on the GPU take longer for small numbers of combinations to fit.
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figures/Timing_OpenCL}
+  \caption{The timing of the \textsc{opencl} algorithm as a function of the
+    number of track fits. We compare timing running the algorithm serially on a CPU, 
+    using \textsc{opencl} on the CPU, and on an AMD GPU.}
+  \label{fig:opencl_timing}
+\end{figure}
 
 \subsection{Data transfer}
 The experimental setup described in Fig.~\ref{fig:data_flow} allows us to 
