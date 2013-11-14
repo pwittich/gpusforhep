@@ -52,11 +52,9 @@ EU Framework Programme 7 project EURETILE under grant number 247846.}% <-this % 
 \thispagestyle{empty}
 % abstract usually in passive voice
 \begin{abstract}
-  Interest in parallel architectures applied to real time selections is 
+  Interest in many-core architectures applied to real time selections is 
   growing in High Energy Physics (HEP) experiments. In this paper we describe
   performance measurements of many-core devices 
- %Graphic Processing Units (GPUs) and Intel Many
-  %Integrated Core architecture (MIC) 
   when applied to a typical HEP online task: 
   the selection of events based on the trajectories of charged particles.
   We use as benchmark a scaled-up version of the algorithm used at CDF 
@@ -65,22 +63,21 @@ EU Framework Programme 7 project EURETILE under grant number 247846.}% <-this % 
   architectures for LHC experiment. We examine the
   complexity/performance trade-off in porting existing serial
   algorithms to many-core devices. We measure performance of
-different architectures (Intel Xeon Phi and AMD GPU's, in addition 
-to NVidia GPU's) and different software
+different architectures (Intel Xeon Phi and AMD GPUs, in addition 
+to NVidia GPUs) and different software
 environments (OpenCL, in addition to NVidia CUDA).
 Measurements of both data processing  and data transfer latency are shown, 
 considering different I/O strategies 
-  to/from the parallel devices. \end{abstract}
+  to/from the many-core devices. \end{abstract}
 
 \section{Introduction}
 \IEEEPARstart{R}{eal}-time event reconstruction plays a fundamental role in High Energy
 Physics (HEP) experiments at hadron colliders.  Reducing the rate of
-data to be saved on tape from millions to hundreds of events per
-second is critical. To increase the purity of the collected samples,
+data to be saved on tape is critical. To increase the purity of the collected samples,
 rate reduction has to be coupled with an initial selection of the most
 interesting events.  In a typical hadron collider experiment, the
 event rate has to be reduced from tens of MHz to a few kHz.  The
-selection system (trigger) is usually organized in multiple levels,
+selection system (trigger) is usually organized in successive levels,
 each capable of performing a finer selection on more complex physics
 objects describing the event. Trigger systems usually comprise a first
 level based on custom hardware, followed by one or two levels usually
@@ -110,28 +107,29 @@ code to many-core devices.
 
 We showed initial studies on GPU performance in low-latency
 environments ($\approx 100~\mu$s) in previous
-papers~\cite{TIPP2011,NSS2012}.  In this paper we extend those studies
-to include other many-core architectures (Intel MIC in addition to
-GPUs).  The algorithm run on the parallel architecture is a complete
-version of the fast track-fitting algorithm of the Silicon Vertex
-Tracker (SVT) system at CDF~\cite{SVT1}.
-We also investigate the performance of the algorithm on a GPU manufactured by AMD using a different
-computing environment: \textsc{opencl}.
-Starting with a serial algorithm
-implemented on a CPU, we test an \textit{embarrassingly parallel}
-algorithm on the Intel MIC environment. In this case each event is
-handled independently by a core on the accelerator, and the
-parallelization is achieved with only minor changes to the legacy code
-and is only possible in the Intel MIC environment. Next we consider an
-algorithm where we unroll three internal nested loops and run these in
-parallel on a GPU, using the \textsc{cuda} environment. This second
-approach is programmatically more complicated and less trivial to
-implement. In neither case have we re-thought the basic algorithms or
-the data structures used. To achieve optimal performance, these steps
-would have to be taken.  As one might expect, the improvement from the
-first approach is rather modest, and the second approach shows larger
-performance gains. For GPUs, we also test different strategies to transfer
-data to and from the device.
+papers~\cite{TIPP2011,NSS2012,CHEP2013}.  In this paper we extend
+those studies to include other many-core architectures (Intel MIC in
+addition to GPUs) and other programming toolsets (\textsc{opencl}).
+The algorithm run on the parallel architecture is a complete version
+of the fast track-fitting algorithm of the Silicon Vertex Tracker
+(SVT) system at CDF~\cite{SVT1}.  We also investigate the performance
+of the algorithm on a GPU manufactured by AMD using a different
+computing environment: \textsc{opencl}.  Starting with a serial
+algorithm implemented on a CPU, we test an \textit{embarrassingly
+  parallel} algorithm on the Intel MIC environment. In this case each
+event is handled independently by a core on the accelerator, and the
+parallelization is achieved with only minor changes to the legacy
+code.  This approach is only possible in the Intel MIC
+environment. Next we consider an algorithm where we unroll three
+internal nested loops and run these in parallel on a GPU, using the
+\textsc{cuda} and \textsc{opencl} environments. This second approach
+is programmatically more complicated and less trivial to implement. In
+neither case have we re-thought the basic algorithms or the data
+structures used. To achieve optimal performance, these steps would
+have to be taken.  As one might expect, the improvement from the first
+approach is rather modest, albeit easier to implement, and the second
+approach shows larger performance gains. For GPUs, we also test
+different strategies to transfer data to and from the device.
 
 
 \section{SVT track fitting algorithm}
@@ -168,41 +166,48 @@ computation of all possible combinations of hits in each road and
 third, the linearized track fit of each combination of hits. Three
 main loops are present - on events, roads and hit combinations.
 
-To be run on NVidia GPUs, the code has been ported to \textsc{cuda}: each step --
-unpack, combine and track fit -- is performed by a specific kernel; the
-three nested loops are unrolled so that each GPU thread processes a
-single combination of hits.  The \textsc{cuda} implementation makes use of 
-\textsc{thrust}~\cite{bib_thrust}, a C++ template library for \textsc{cuda}, in the unpacking step.
+To be run on NVidia GPUs, the code has been ported to \textsc{cuda}:
+each step -- unpack, combine and track fit -- is performed by a
+specific kernel; the three nested loops are unrolled so that each GPU
+thread processes a single combination of hits.  The \textsc{cuda}
+implementation makes use of \textsc{thrust}~\cite{bib_thrust}, a C++
+template library for \textsc{cuda}, in the unpacking step. The
+existence of template libraries such as \textsc{thrust} is an
+advantage of the \textsc{cuda} environment.
 
-To implement the algorithm to run on an AMD GPU, we have ported the \textit{combine} and \textit{track fit}
-\textsc{cuda} kernels to \textsc{opencl}, which requires minimal changes. Because the \textsc{thrust} template libraries
-can only be used with \textsc{cuda}, we resort to unpacking serially on the CPU.
+To implement the algorithm to run on an AMD GPU, we have ported the
+\textit{combine} and \textit{track fit} \textsc{cuda} kernels to
+\textsc{opencl}, which requires minimal changes. Because the
+\textsc{thrust} template libraries can only be used with
+\textsc{cuda}, we resort to unpacking serially on the CPU.
 
-To run on MIC, where cores are more powerful 
-but fewer in number, we adopted the so-called
-\textit{embarrassingly parallel} approach and used \textsc{pragma
-  OpenMP} for statements to unroll only the external loop on the events, so
-that each core processes a single event: the porting requires much
-less effort compared to \textsc{cuda}, but the level of parallelism is
-limited.
+To run on MIC, where cores are more powerful but fewer in number, we
+adopted the so-called \textit{embarrassingly parallel} approach and
+used \textsc{pragma OpenMP} for statements to unroll only the external
+loop on the events, so that each core processes a single event: the
+porting requires much less effort compared to \textsc{cuda}, but the
+level of parallelism is limited.
 
 \section{Experimental setup and data flow}
 The many-core devices used in this study are listed in
 Table~\ref{tab_hwspecs}. The GPUs include a less expensive gaming
-class GPUs (the NVidia GTX and AMD Radeon cards) and ones optimized for scientific computing
-(Tesla). The MIC corresponds to a Xeon Phi introduced in November 2012.
+class GPUs (the NVidia GTX and AMD Radeon cards) and ones optimized
+for scientific computing (Tesla). The MIC corresponds to a Xeon Phi
+introduced in November 2012.
 
 \begin{table*}[tbp]
   \caption{Capabilities of the many-core devices used in this study,
     according to the manufacturer's specifications. The first three
-    are \textsc{nvidia} GPUs, the MIC 5110P is an Intel Xeon Phi, and the final one is an AMD GPU.}
+    are \textsc{nvidia} GPUs, the MIC 5110P is an Intel Xeon Phi, and
+    the final one is an AMD GPU.  For Xeon Phi, the ``cores'' column
+    counts the HW threads per core as equivalent to a GPU core.}
   \label{tab_hwspecs}
   \centering
   \begin{tabular}{|l|c|c|c|c|c|}
     \hline
     Model & Tesla M2050 & Tesla K20m & GeForce GTX  Titan & MIC 5110P & Radeon HD 7970 \\
     \hline
-    \hline
+     \hline
     Performance (SP, GFlops) & 1030 & 3520 & 4500 & 2022 & 3790\\
     Memory bandwidth  (GB/s) & 148 & 208 & 288  & 320 & 264\\   
     Memory size (GB) & 3 & 5 & 6 & 8 & 3\\
@@ -243,18 +248,21 @@ trigger system: the time to transfer data to the receiver is thus a
 rough estimate of the latency to transfer the data from the detector
 front-end to the trigger system.
 
-We have an additional setup for testing the \textsc{opencl} implementation of the track 
-fitting algorithm. On this setup, we use a 3.07 GHz Intel Core i7 CPU 950, which has four cores 
-and up to eight computation threads. We can run the algorithm serially on this CPU (one core), or 
-run the \textsc{opencl} algorithm and make use of the multi-core architecture. Additionally, we have an 
-AMD Radeon HD 7970 GPU in a PCIe slot in this setup, on which we can also run the \textsc{opencl} algorithm.
+We have an additional setup for testing the \textsc{opencl}
+implementation of the track fitting algorithm. Here, we use a 3.07 GHz
+Intel Core i7 CPU 950, which has four cores and up to eight
+computation threads. We run the algorithm serially on this CPU (one
+core), and also run a CPU-based \textsc{opencl} algorithm which makes
+use of the multi-core architecture. Additionally, we have an AMD
+Radeon HD 7970 GPU in a PCIe slot in this setup, on which we also run
+the \textsc{opencl} algorithm.
 
 \section{Results}
 The input data consists of events with a fixed number of roads and
 combinations: each event has 2048 combinations to be fitted. To
 explore different data-taking conditions, the number of events ranges
-from one to 3000, \emph{i.e.,} from 2048 to about six millions of combinations
-to fit.
+from one to 3000, \emph{i.e.,} between 2048 to about six millions of
+combinations to fit.
  
 \subsection{Data processing}
 Each data sample is processed 100 times by the track fitting algorithm. 
@@ -290,8 +298,8 @@ affords a much more significant speed improvement.
     E5630). The speed-ups plateau after about two million fits.}
   \label{fig:algo_only_speedup}
 \end{figure}
-Accelerators performance drop with decreasing number of fits, as can be seen 
-in Fig.~\ref{fig:algo_only_timing_zoom}.
+The accelerator card's performance drop with decreasing number of fits, as can be seen 
+in Fig.~\ref{fig:algo_only_timing_zoom}, due to overhead.
 Figure~\ref{fig:algo_only_speedup} shows the speed-up with respect to the serial 
 algorithm run on a standard CPU (Intel Xeon E5630): the maximum gain is 
 obtained processing at least 500 events. This means that to fully exploit 
