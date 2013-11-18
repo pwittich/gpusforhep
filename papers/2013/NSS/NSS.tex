@@ -372,6 +372,11 @@ GPU take longer for small numbers of combinations to fit.
     using \textsc{opencl} on the CPU, and on an AMD GPU.}
   \label{fig:opencl_timing}
 \end{figure}
+Surprisingly, though \textsc{opencl} is an open standard, we find that
+we are unable to run the same \textsc{opencl} code on Nvidia GPUs. On two
+different installations with two different video cards, we find
+incorrect results running the code that ran successfully on the AMD
+card. At present it is unclear what the root cause  is.
 
 \subsection{Data transfer}
 The experimental setup described in Fig.~\ref{fig:data_flow} allows us to 
