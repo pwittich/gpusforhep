@@ -158,7 +158,7 @@ We ported the track fitting as it is well suited to parallelization -
 each track can be handled independently.
 
 \subsection{Code implementation}
-The starting point of of our studies is the SVT track fitting
+The starting point of our studies is the SVT track fitting
 simulation code, written in the \textsc{c} language. SVT track fitting
 is divided into three main functions: first, the unpacking of input
 data and filling of all the necessary data structures; second, the
@@ -243,7 +243,7 @@ standard \textsc{c} libraries.
 \end{figure}
 In this setup, the transmitter can represent the detector, as
 the source of the data, or an upstream trigger processor, as
-the ultimate sink of the data, while the the receiver is the
+the ultimate sink of the data, while the receiver is the
 trigger system: the time to transfer data to the receiver is thus a
 rough estimate of the latency to transfer the data from the detector
 front-end to the trigger system.
@@ -278,7 +278,7 @@ affords a much more significant speed improvement.
   \caption{Algorithm-only comparison for timing as a function of the
     number of track fits. We compare timing on CPUs (serial), Intel
     MIC (embarrassingly parallel), and GPUs (fully parallel), in
-    blue, greed, and red, respectively. The GPUs exhibit the best
+    blue, green, and red, respectively. The GPUs exhibit the best
     performance due to the full parallelization. }
   \label{fig:algo_only_timing}
 \end{figure}
