@@ -32,7 +32,7 @@ Experiments}
   P.~Vicini
   and 
   P.~Wittich
-\thanks{Manuscript received November 15, 2013.
+\thanks{Manuscript received November 22, 2013.
 This work was supported by the  US National Science Foundation, the US 
 Department of Energy Office of Science and the Italian
 Istituto Nazionale di Fisica Nucleare. This work was partially supported by the 
@@ -40,7 +40,7 @@ EU Framework Programme 7 project EURETILE under grant number 247846.}% <-this % 
 \thanks{D.~Bastieri and D.~Lucchesi are with University of Padova and INFN Padova.}% 
 \thanks{A.~Gianelle is with INFN Padova.}% 
 \thanks{M.~Corvo is with University of Ferrara.}% 
-\thanks{S.~Amerio is with University of Padova}% 
+\thanks{S.~Amerio is with University of Padova.}% 
 \thanks{W.~Ketchum is with Los Alamos National Laboratory.}%
 \thanks{T.~Liu and R.~Rivera are with Fermi National Accelerator Laboratory.}%
 \thanks{A.~Lonardo, L.~Tosoratto and P.~Vicini are with INFN Roma.}% 
@@ -63,7 +63,7 @@ EU Framework Programme 7 project EURETILE under grant number 247846.}% <-this % 
   architectures for LHC experiment. We examine the
   complexity/performance trade-off in porting existing serial
   algorithms to many-core devices. We measure performance of
-different architectures (Intel Xeon Phi and AMD GPUs, in addition 
+different architectures (Intel Xeon Phi and \textsc{amd} GPUs, in addition 
 to NVidia GPUs) and different software
 environments (OpenCL, in addition to NVidia CUDA).
 Measurements of both data processing  and data transfer latency are shown, 
@@ -108,14 +108,18 @@ code to many-core devices.
 We showed initial studies on GPU performance in low-latency
 environments ($\approx 100~\mu$s) in previous
 papers~\cite{TIPP2011,NSS2012,CHEP2013}.  In this paper we extend
-those studies to include other many-core architectures (Intel MIC in
-addition to GPUs) and other programming toolsets (\textsc{opencl}).
+those studies to include other many-core architectures (Intel MIC 
+and \textsc{amd} GPUs in
+addition to \textsc{nvidia} GPUs) and other programming 
+toolsets (\textsc{opencl} in addition to \textsc{cuda}).
 The algorithm run on the parallel architecture is a complete version
 of the fast track-fitting algorithm of the Silicon Vertex Tracker
-(SVT) system at CDF~\cite{SVT1}.  We also investigate the performance
-of the algorithm on a GPU manufactured by AMD using a different
-computing environment: \textsc{opencl}.  Starting with a serial
-algorithm implemented on a CPU, we test an \textit{embarrassingly
+(SVT) system at CDF~\cite{SVT1}.  
+%We also investigate the performance
+%of the algorithm on a GPU manufactured by AMD using a different
+%computing environment: \textsc{opencl}.  
+Starting with a serial algorithm implemented on a CPU, 
+we test an \textit{embarrassingly
   parallel} algorithm on the Intel MIC environment. In this case each
 event is handled independently by a core on the accelerator, and the
 parallelization is achieved with only minor changes to the legacy
@@ -166,7 +170,7 @@ computation of all possible combinations of hits in each road and
 third, the linearized track fit of each combination of hits. Three
 main loops are present - on events, roads and hit combinations.
 
-To be run on NVidia GPUs, the code has been ported to \textsc{cuda}:
+To be run on \textsc{nvidia} GPUs, the code has been ported to \textsc{cuda}:
 each step -- unpack, combine and track fit -- is performed by a
 specific kernel; the three nested loops are unrolled so that each GPU
 thread processes a single combination of hits.  The \textsc{cuda}
@@ -175,7 +179,7 @@ template library for \textsc{cuda}, in the unpacking step. The
 existence of template libraries such as \textsc{thrust} is an
 advantage of the \textsc{cuda} environment.
 
-To implement the algorithm to run on an AMD GPU, we have ported the
+To implement the algorithm to run on an \textsc{amd} GPU, we have ported the
 \textit{combine} and \textit{track fit} \textsc{cuda} kernels to
 \textsc{opencl}, which requires minimal changes. Because the
 \textsc{thrust} template libraries can only be used with
@@ -191,7 +195,7 @@ level of parallelism is limited.
 \section{Experimental setup and data flow}
 The many-core devices used in this study are listed in
 Table~\ref{tab_hwspecs}. The GPUs include a less expensive gaming
-class GPUs (the NVidia GTX and AMD Radeon cards) and ones optimized
+class GPUs (the \textsc{nvidia} GTX and \textsc{amd} Radeon cards) and ones optimized
 for scientific computing (Tesla). The MIC corresponds to a Xeon Phi
 introduced in November 2012.
 
@@ -199,7 +203,7 @@ introduced in November 2012.
   \caption{Capabilities of the many-core devices used in this study,
     according to the manufacturer's specifications. The first three
     are \textsc{nvidia} GPUs, the MIC 5110P is an Intel Xeon Phi, and
-    the final one is an AMD GPU.  For Xeon Phi, the ``cores'' column
+    the final one is an \textsc{amd} GPU.  For Xeon Phi, the ``cores'' column
     counts the HW threads per core as equivalent to a GPU core.}
   \label{tab_hwspecs}
   \centering
@@ -253,7 +257,7 @@ implementation of the track fitting algorithm. Here, we use a 3.07 GHz
 Intel Core i7 CPU 950, which has four cores and up to eight
 computation threads. We run the algorithm serially on this CPU (one
 core), and also run a CPU-based \textsc{opencl} algorithm which makes
-use of the multi-core architecture. Additionally, we have an AMD
+use of the multi-core architecture. Additionally, we have an \textsc{amd}
 Radeon HD 7970 GPU in a PCIe slot in this setup, on which we also run
 the \textsc{opencl} algorithm.
 
@@ -348,7 +352,7 @@ this part of the algorithm.
 We also measure the track fitting algorithm latency in an
 implementation using \textsc{opencl}. The \textsc{opencl} tools have
 the advantage of being an open standard, while the \textsc{cuda} tools
-are only compatible with Nvidia GPUs. Additionally, \textsc{opencl}
+are only compatible with \textsc{nvidia} GPUs. Additionally, \textsc{opencl}
 can work also on CPUs and on the Xeon Phi. For our tests, due to
 limitations on the available space for storing data on the GPU, we
 only test the algorithm on up to 1000 events (\textit{i.e.} about 2
@@ -356,7 +360,7 @@ million combinations to fit). In Fig.~\ref{fig:opencl_timing} we show
 the results of algorithm latency measurements for three different
 modes: running the serial algorithm on the CPU (single-core), running
 the \textsc{opencl} algorithm on the CPU (multi-core), and running the
-\textsc{opencl} algorithm on the AMD Radeon GPU. The \textsc{opencl}
+\textsc{opencl} algorithm on the \textsc{amd} Radeon GPU. The \textsc{opencl}
 implementation of the algorithm on the CPU provides a significant
 speedup---about a factor of 5---over running the algorithm serially on
 the CPU. Running the same \textsc{opencl} algorithm on the GPU
@@ -369,13 +373,13 @@ GPU take longer for small numbers of combinations to fit.
   \includegraphics[width=0.9\linewidth]{figures/TotalTimeOpencl_1000}
   \caption{The timing of the \textsc{opencl} algorithm as a function of the
     number of track fits. We compare timing running the algorithm serially on a CPU, 
-    using \textsc{opencl} on the CPU, and on an AMD GPU.}
+    using \textsc{opencl} on the CPU, and on an \textsc{amd} GPU.}
   \label{fig:opencl_timing}
 \end{figure}
 Surprisingly, though \textsc{opencl} is an open standard, we find that
-we are unable to run the same \textsc{opencl} code on Nvidia GPUs. On two
+we are unable to run the same \textsc{opencl} code on \textsc{nvidia} GPUs. On two
 different installations with two different video cards, we find
-incorrect results running the code that ran successfully on the AMD
+incorrect results running the code that ran successfully on the \textsc{amd}
 card. At present it is unclear what the root cause  is.
 
 \subsection{Data transfer}
