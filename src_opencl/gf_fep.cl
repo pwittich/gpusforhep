@@ -34,8 +34,9 @@ __constant unsigned long gf_maskdata3_GPU[] = {
   0x01ffffffffffUL, 0x03ffffffffffUL, 0x07ffffffffffUL, 0x0fffffffffffUL,
   0x1fffffffffffUL, 0x3fffffffffffUL, 0x7fffffffffffUL, 0xffffffffffffUL 
 };
-/*
-__global__ void k_word_decode(int N, global unsigned int *words, global int *ids, global int *out1, global int *out2, global int *out3) {
+
+
+__kernel void k_word_decode(int N, global unsigned int *words, global int *ids, global int *out1, global int *out2, global int *out3) {
 
     //parallel word_decode kernel.
     //each word is decoded and layer (id) and output values are set.
@@ -48,7 +49,7 @@ __global__ void k_word_decode(int N, global unsigned int *words, global int *ids
       //id == EE_LYR: ee_word
   //
 
-  long idx = get_group_id(0)+get_local_id(0);
+  long idx = get_group_id(0)*get_local_size(0)+get_local_id(0);
 
   if (idx > N) return;
 
@@ -103,7 +104,7 @@ __global__ void k_word_decode(int N, global unsigned int *words, global int *ids
 
   ids[idx] = lyr;
 }
-*/
+
 
 __kernel void gf_fep_comb_GPU (global struct evt_arrays* evt_dev, global struct fep_arrays* fep_dev) {
 

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <iterator>
 #include <stdio.h>
+#include <malloc.h>
 
 const int gf_maskdata[] = {
   0x00000000,
@@ -189,13 +190,43 @@ int main(int argc, char* argv[]) {
   int ow;
 
 
-  struct evt_arrays *evt = new evt_arrays;
+  std::cout << "get_page_size return is " << getpagesize() << std::endl;
+
   int totEvts;
+  
+  struct evt_arrays *evt = new evt_arrays;
   struct fep_arrays *fep_dev = new fep_arrays;
   struct extra_data *edata_dev = new extra_data;
   struct fit_arrays *fit_dev = new fit_arrays;
   struct fout_arrays *fout_dev = new fout_arrays;
-
+  
+  int n_words=k;
+  
+  int N_THREADS_PER_BLOCK = 32;
+  int *ids, *out1, *out2, *out3;
+  int tEvts = 0;
+  // unsigned int *d_data_in;
+  long sizeW = sizeof(int) * n_words;
+  
+  ids  = (int *)malloc(sizeW);
+  out1 = (int *)malloc(sizeW);
+  out2 = (int *)malloc(sizeW);
+  out3 = (int *)malloc(sizeW);
+  
+  /*
+  struct evt_arrays *evt = (struct evt_arrays*)memalign(getpagesize(),sizeof(struct evt_arrays));
+  struct fep_arrays *fep_dev = (struct fep_arrays*)memalign(getpagesize(),sizeof(struct fep_arrays));
+  struct extra_data *edata_dev = (struct extra_data*)memalign(getpagesize(),sizeof(struct extra_data));
+  struct fit_arrays *fit_dev = (struct fit_arrays*)memalign(getpagesize(),sizeof(struct fit_arrays));
+  struct fout_arrays *fout_dev = (struct fout_arrays*)memalign(getpagesize(),sizeof(struct fout_arrays));
+  */
+  /*
+  struct evt_arrays *evt = (struct evt_arrays*)memalign(pow(2,ceil(log(sizeof(struct evt_arrays))/log(2))),sizeof(struct evt_arrays));
+  struct fep_arrays *fep_dev = (struct fep_arrays*)memalign(pow(2,ceil(log(sizeof(struct fep_arrays))/log(2))),sizeof(struct fep_arrays));
+  struct extra_data *edata_dev = (struct extra_data*)memalign(pow(2,ceil(log(sizeof(struct extra_data))/log(2))),sizeof(struct extra_data));
+  struct fit_arrays *fit_dev = (struct fit_arrays*)memalign(pow(2,ceil(log(sizeof(struct fit_arrays))/log(2))),sizeof(struct fit_arrays));
+  struct fout_arrays *fout_dev = (struct fout_arrays*)memalign(pow(2,ceil(log(sizeof(struct fout_arrays))/log(2))),sizeof(struct fout_arrays));
+  */
 
   svtsim_fconread(tf, edata_dev);
 
@@ -211,8 +242,8 @@ int main(int argc, char* argv[]) {
 
   gettimeofday(&tBegin, NULL);
 
-  const bool PRINT_TIME=false;
-  const int N_LOOPS=1;
+  const bool PRINT_TIME=true;
+  const int N_LOOPS=10;
   const int N_CHECKS=5;
   float times[N_CHECKS][N_LOOPS];
   int n_iters=0;
@@ -295,7 +326,7 @@ int main(int argc, char* argv[]) {
     //plat_i = 1;	
     
     //this is for AMD card...
-    dev_i = 1;
+    dev_i = 0;
     plat_i = 0;	
 
 
@@ -396,9 +427,9 @@ int main(int argc, char* argv[]) {
 
     //====================================
     //set kernel entry point
-    //std::string kernelFunc_unpack = "k_word_decode";
-    //cl::Kernel kernel_unpack(program, kernelFunc_unpack.c_str(), &err);
-    //CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
+    std::string kernelFunc_unpack = "k_word_decode";
+    cl::Kernel kernel_unpack(program, kernelFunc_unpack.c_str(), &err);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::Kernel()");
     //std::cout << __FANCY__ << "Entry point set to " << kernelFunc_fep_comb << std::endl;
  
    //====================================
@@ -492,8 +523,8 @@ int main(int argc, char* argv[]) {
     //std::cout << "device type " << CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) << std::endl;
 
 
-    //printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
-    //	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
+    printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d, fout_arrays=%d\n",
+	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data),sizeof(fout_arrays));
 
 
     cl::Buffer edata_dev_CL(
@@ -514,10 +545,11 @@ int main(int argc, char* argv[]) {
 				   edata_dev);
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueWriteBuffer(edata)");
 
-    event.wait();
+    err = queue.finish();
 
   while (n_iters < N_LOOPS){
-    /*
+    if(n_iters%10==0) printf("Processing loop %d\n",n_iters);
+    
     cl::Buffer input_CL(
 		      context,
 		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
@@ -533,8 +565,8 @@ int main(int argc, char* argv[]) {
 		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 		      CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		      k*sizeof(int),
-		      //evt,
-		      NULL,
+		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+		      NULL:ids,
 		      &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() IDS");
 
@@ -543,8 +575,8 @@ int main(int argc, char* argv[]) {
 		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 		      CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		      k*sizeof(int),
-		      //evt,
-		      NULL,
+		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+		      NULL:out1,
 		      &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT1");
 
@@ -553,8 +585,8 @@ int main(int argc, char* argv[]) {
 		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 		      CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		      k*sizeof(int),
-		      //evt,
-		      NULL,
+		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+		      NULL:out2,
 		      &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT2");
 
@@ -563,11 +595,21 @@ int main(int argc, char* argv[]) {
 		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 		      CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 		      k*sizeof(int),
-		      //evt,
-		      NULL,
+		      (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+		      NULL:out3,
 		      &err);
     CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT3");
-    */
+    
+
+    cl::Buffer fout_dev_CL(
+			    context,
+			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
+			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
+			    sizeof(fout_arrays),
+			    (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
+			    NULL:fout_dev,
+			    &err);
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT (fout_arrays)");
 
     cl::Buffer evt_CL(
 		      context,
@@ -588,7 +630,7 @@ int main(int argc, char* argv[]) {
 			  (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 			  NULL:fit_dev,
 			  &err);
-    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT (fit_dev)");
     
     //printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
     //	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
@@ -601,20 +643,23 @@ int main(int argc, char* argv[]) {
 			  (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
 			  NULL:fep_dev,
 			  &err);
-    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
+    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT (fep_dev)");
         
-    cl::Buffer fout_dev_CL(
-			    context,
-			    CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i) ?
-			    CL_MEM_READ_WRITE:CL_MEM_USE_HOST_PTR, //CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,
-			    sizeof(fout_arrays),
-			    (CL_HELPERFUNCS::isDeviceTypeGPU(&deviceList,plat_i,dev_i)==1) ?
-			    NULL:fout_dev,
-			    &err);
-    CL_HELPERFUNCS::checkErr(err, "Buffer::Buffer() OUT");
-
     err = kernel_init.setArg(1, evt_CL);
     err = kernel_init.setArg(0, fout_dev_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+
+    err = kernel_unpack.setArg(0,n_words);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_unpack.setArg(1,input_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_unpack.setArg(2,ids_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_unpack.setArg(3,out1_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_unpack.setArg(4,out2_CL);
+    CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
+    err = kernel_unpack.setArg(5,out3_CL);
     CL_HELPERFUNCS::checkErr(err, "Kernel::setArg()");
 
     err = kernel_fep_comb.setArg(0, evt_CL);
@@ -651,35 +696,23 @@ int main(int argc, char* argv[]) {
 				     &event);
     CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(init)");
 
-    event.wait();
+    err = queue.finish();
     
     //printf("We have prepared the buffers and are ready to go!\n");
 
     //printf("Size of arrays is evt_arrays=%d, fep_arrays=%d, fit_arrays=%d, extra_data=%d\n",
     //	   sizeof(evt_arrays),sizeof(fep_arrays),sizeof(fit_arrays), sizeof(extra_data));
-
+    
     gettimeofday(&ptBegin, NULL);
-
+    /*
     gf_fep_unpack_evt(evt, k, data_send); //printf("Total events %d\n\n",evt->totEvts);
 
     gettimeofday(&ptEnd, NULL);
     if(PRINT_TIME) printf("Time to CPU unpack: %.3f ms\n",
 			  ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
     times[0][n_iters] = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
-
-    /*
-    int n_words=k;
-
-    int N_THREADS_PER_BLOCK = 32;
-    int *ids, *out1, *out2, *out3;
-    int tEvts = 0;
-    // unsigned int *d_data_in;
-    long sizeW = sizeof(int) * n_words;
+    */
     
-    ids  = (int *)malloc(sizeW);
-    out1 = (int *)malloc(sizeW);
-    out2 = (int *)malloc(sizeW);
-    out3 = (int *)malloc(sizeW);
     
     err = queue.enqueueWriteBuffer(
 				   input_CL,
@@ -689,6 +722,7 @@ int main(int argc, char* argv[]) {
 				   data_send);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueWriteBuffer()");
 
+    std::cout << "Wrote input to GPU" << std::endl;
 
     err = queue.enqueueNDRangeKernel(
 				     kernel_unpack,
@@ -697,39 +731,43 @@ int main(int argc, char* argv[]) {
 				     cl::NDRange(N_THREADS_PER_BLOCK),
 				     NULL,
 				     &event);
-    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(fep_comb)");
+    CL_HELPERFUNCS::checkErr(err, "ComamndQueue::enqueueNDRangeKernel(kernel_unpack)");
+
+    std::cout << "Ran kernel on GPU" << std::endl;
 
     err = queue.enqueueReadBuffer(
 				  out1_CL,
 				  CL_TRUE,
 				  0,
-				  sizeof(fout_arrays),
+				  k*sizeof(int),
 				  out1);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer(out1)");
 
     err = queue.enqueueReadBuffer(
 				  out2_CL,
 				  CL_TRUE,
 				  0,
-				  sizeof(fout_arrays),
+				  k*sizeof(int),
 				  out2);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer(out2)");
 
     err = queue.enqueueReadBuffer(
 				  out3_CL,
 				  CL_TRUE,
 				  0,
-				  sizeof(fout_arrays),
+				  k*sizeof(int),
 				  out3);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer(out3)");
 
     err = queue.enqueueReadBuffer(
 				  ids_CL,
 				  CL_TRUE,
 				  0,
-				  sizeof(fout_arrays),
+				  k*sizeof(int),
 				  ids);
-    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
+    CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer(ids)");
+
+    std::cout << "Got output from GPU" << std::endl;
 
     memset(evt->evt_nroads, 0, sizeof(evt->evt_nroads));
     memset(evt->evt_err_sum, 0, sizeof(evt->evt_err_sum));
@@ -737,11 +775,14 @@ int main(int argc, char* argv[]) {
     memset(evt->evt_nhits, 0,  sizeof(evt->evt_nhits));
     memset(evt->evt_err,  0,   sizeof(evt->evt_err));
     memset(evt->evt_zid,  0,   sizeof(evt->evt_zid));
-    
+
+    std::cout << "Did memset" << std::endl;
+
     for (int ie = 0; ie < NEVTS; ie++) {
       evt->evt_zid[ie][evt->evt_nroads[ie]] = -1; // because we set it to 0 for GPU version
     }
     
+    std::cout << "Did some more event pulling" << std::endl;
     
     int id_last = -1;
     int my_event = EVT;
@@ -749,16 +790,28 @@ int main(int argc, char* argv[]) {
     
     for (int i = 0; i < n_words; i++) {
       
+      std::cout << "Inside nwords loop on " << i << " of " << n_words << std::endl;
+
       id = ids[i];
       
+      std::cout << "\tGot id" << std::endl;
+
       bool gf_xft = 0;
       if (id == XFT_LYR_2) { // compatibility - stp
 	id = XFT_LYR;
 	gf_xft = 1;
       }
       
+      std::cout << "\tGot xft thing" << std::endl;
+
+      std::cout << "My event is " << my_event << std::endl;
+
       int nroads = evt->evt_nroads[my_event];
+      std::cout << "\tGot roads: " << nroads << std::endl;
+
       int nhits = evt->evt_nhits[my_event][nroads][id];
+
+      std::cout << "\tGot roads and hits" << std::endl;
       
       // SVX Data
       if (id < XFT_LYR) {
@@ -836,11 +889,18 @@ int main(int argc, char* argv[]) {
       }
       id_last = id;
 
+      std::cout << "\tEnd of loop" << std::endl;
+
     } //end loop on input words
 
-    */
+    
+    std::cout << "Finished cpu part" << std::endl;
 
 
+    gettimeofday(&ptEnd, NULL);
+    if(PRINT_TIME) printf("Time to GPU unpack: %.3f ms\n",
+			  ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0);
+    times[0][n_iters] = ((ptEnd.tv_usec + 1000000 * ptEnd.tv_sec) - (ptBegin.tv_usec + 1000000 * ptBegin.tv_sec))/1000.0;
 
     gettimeofday(&ptBegin, NULL);
     /*
@@ -991,7 +1051,7 @@ int main(int argc, char* argv[]) {
     //printf("Error was ... %d\n",err);
     //err = queue.finish();
     //CL_HELPERFUNCS::checkErr(err, "ComamndQueue::clFinish2()");
-    
+    /*
     err = queue.enqueueReadBuffer(
 				  fep_dev_CL,
 				  CL_TRUE,
@@ -1009,7 +1069,7 @@ int main(int argc, char* argv[]) {
 				  sizeof(fit_arrays),
 				  fit_dev);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer()");
-    
+    */
     err = queue.enqueueReadBuffer(
 				  fout_dev_CL,
 				  CL_TRUE,
@@ -1112,6 +1172,10 @@ int main(int argc, char* argv[]) {
   delete fit_dev;
   delete fout_dev;
 
+  free(ids);
+  free(out1);
+  free(out2);
+  free(out3);
 
   return 0;
 }
