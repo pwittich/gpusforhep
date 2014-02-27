@@ -767,7 +767,7 @@ int main(int argc, char* argv[]) {
 				  ids);
     CL_HELPERFUNCS::checkErr(err, "CommandQueue::enqueueReadBuffer(ids)");
 
-    std::cout << "Got output from GPU" << std::endl;
+    //std::cout << "Got output from GPU" << std::endl;
 
     memset(evt->evt_nroads, 0, sizeof(evt->evt_nroads));
     memset(evt->evt_err_sum, 0, sizeof(evt->evt_err_sum));
@@ -776,13 +776,13 @@ int main(int argc, char* argv[]) {
     memset(evt->evt_err,  0,   sizeof(evt->evt_err));
     memset(evt->evt_zid,  0,   sizeof(evt->evt_zid));
 
-    std::cout << "Did memset" << std::endl;
+    //std::cout << "Did memset" << std::endl;
 
     for (int ie = 0; ie < NEVTS; ie++) {
       evt->evt_zid[ie][evt->evt_nroads[ie]] = -1; // because we set it to 0 for GPU version
     }
     
-    std::cout << "Did some more event pulling" << std::endl;
+    //std::cout << "Did some more event pulling" << std::endl;
     
     int id_last = -1;
     int my_event = EVT;
@@ -790,11 +790,11 @@ int main(int argc, char* argv[]) {
     
     for (int i = 0; i < n_words; i++) {
       
-      std::cout << "Inside nwords loop on " << i << " of " << n_words << std::endl;
+      //std::cout << "Inside nwords loop on " << i << " of " << n_words << std::endl;
 
       id = ids[i];
       
-      std::cout << "\tGot id" << std::endl;
+      //std::cout << "\tGot id" << std::endl;
 
       bool gf_xft = 0;
       if (id == XFT_LYR_2) { // compatibility - stp
@@ -802,16 +802,16 @@ int main(int argc, char* argv[]) {
 	gf_xft = 1;
       }
       
-      std::cout << "\tGot xft thing" << std::endl;
+      //std::cout << "\tGot xft thing" << std::endl;
 
-      std::cout << "My event is " << my_event << std::endl;
+      //std::cout << "\tMy event is " << my_event << std::endl;
 
       int nroads = evt->evt_nroads[my_event];
-      std::cout << "\tGot roads: " << nroads << std::endl;
+      //std::cout << "\tGot roads: " << nroads << std::endl;
 
       int nhits = evt->evt_nhits[my_event][nroads][id];
 
-      std::cout << "\tGot roads and hits" << std::endl;
+      //std::cout << "\tGot roads and " << nhits << " hits" << std::endl;
       
       // SVX Data
       if (id < XFT_LYR) {
@@ -878,9 +878,26 @@ int main(int argc, char* argv[]) {
 	id = -1; id_last = -1;
       } else if (id == EE_LYR) {
 
+	/*
+	std::cout << "END OF EVENT!" << std::endl;
+	std::cout << "\tInside nwords loop on " << i << " of " << n_words << std::endl;
+	std::cout << "\tMy event is " << my_event << std::endl;
+
+
+	int my_roads = evt->evt_nroads[my_event];
+	int my_hits=0;
+	for(int ir=0; ir<my_roads; ir++){
+	  for(int il=0; il<NSVX_PLANE+1; il++){
+	    my_hits += evt->evt_nhits[my_event][ir][il];	  
+	  }
+	}
+	std::cout << "\tGot roads: " << my_roads << std::endl;
+	std::cout << "\tGot hits: " << my_hits << std::endl;
+	*/
 	evt->evt_ee_word[my_event] = out1[i];
 	tEvts++;
-	evt++;
+	my_event++;
+
 
 	id = -1; id_last = -1;
       } else {
@@ -889,12 +906,12 @@ int main(int argc, char* argv[]) {
       }
       id_last = id;
 
-      std::cout << "\tEnd of loop" << std::endl;
+      //std::cout << "\tEnd of loop" << std::endl;
 
     } //end loop on input words
 
     
-    std::cout << "Finished cpu part" << std::endl;
+    //std::cout << "Finished cpu part" << std::endl;
 
 
     gettimeofday(&ptEnd, NULL);

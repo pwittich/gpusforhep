@@ -23,7 +23,7 @@
 
 
 //GF
-#define NEVTS 1500
+#define NEVTS 100
 #define NROADS 64
 #define EVT 0 //all words from the input file are considered belonging to the same event
 
